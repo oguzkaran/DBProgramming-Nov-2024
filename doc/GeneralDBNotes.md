@@ -10,7 +10,9 @@
 >
 >- Aşağı seviyeli dosya organizasyonu ile kullanıcının ilişkisini keserler. VTYS'lerde kullanıcıların, bilgilerin hangi dosyada ya da dosyalarda tutulduğunu bilmesi gerekmez. Yani adeta veritabanı kullanıcıya bir kara kutu gibi sunulur. Kullanıcı VTYS'ye ne yapacağını iletir ve ilgili işlemler VTYS tarafından yapılır. 
 >- VTYS'ler genel olarak yüksek seviyeli deklaratif dillerle kullanıcı isteklerini alırlar ve ilgili işlemler yaparlar. Bu dillerden ilişkisel veritabanı modelini kullanan sistemlerde en yaygın olanı **SQL (Structured Query Language)** dilidir. 
-> **Anahtar Notlar:** VTYS'lerde kullanılan dil her ne kadar SQL olarak adlandırılsa da VTYS'ye özgü dil kuralları ve özel adları olabilmektedir. Örneğin, PostgreSQL'de kullanılan genel olarak `plpgsql` dilidir. MSSQL'de kullanılan dil de genel olarak `T-SQL` dilidir. Oracle'da kullanılan dil `PL/SQL` dilidir. 
+>
+**Anahtar Notlar:** VTYS'lerde kullanılan dil her ne kadar SQL olarak adlandırılsa da VTYS'ye özgü dil kuralları ve özel adları olabilmektedir. Örneğin, PostgreSQL'de kullanılan genel olarak `plpgsql` dilidir. MSSQL'de kullanılan dil de genel olarak `T-SQL` dilidir. Oracle'da kullanılan dil `PL/SQL` dilidir. 
+>
 >- VTYS'ler genel olarak `client-server` çalışma modeline sahiptir. Birden fazla kullanıcı VTYS'ye istekte bulunup cevap alabilir. 
 >- VTYS'lerin bir çoğu bir takım yardımcı araçları da içerirler. Örneğin, yönetici programlar, sorgulamaya ilişkin optimizasyon araçları vb. 
 >- VTYS'ler belli düzeyde secure ve reliable olarak üretildiklerinden, bu sistemlerde bilgiler kolay kolay bozulmaz ve kolay kolay çalınamazlar. 
