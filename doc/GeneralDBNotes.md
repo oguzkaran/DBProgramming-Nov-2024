@@ -16,4 +16,10 @@
 >- VTYS'ler genel olarak `client-server` çalışma modeline sahiptir. Birden fazla kullanıcı VTYS'ye istekte bulunup cevap alabilir. 
 >- VTYS'lerin bir çoğu bir takım yardımcı araçları da içerirler. Örneğin, yönetici programlar, sorgulamaya ilişkin optimizasyon araçları vb. 
 >- VTYS'ler belli düzeyde secure ve reliable olarak üretildiklerinden, bu sistemlerde bilgiler kolay kolay bozulmaz ve kolay kolay çalınamazlar. 
+>
+>Bazı VTYS'ler, yukarıdaki özelliklerin pek çoğunu barındırmasa da `SQL` kullanımına izin vermektedir. Bunları genel olarak kurulum da gerektirmez. Bunlar adeta bir veritabanı kütüphanesi gibi tek bir kütüphane dosyasından oluşmaktadırlar. Özellikle gömülü sistemlerde (embedded systems) tercih edildiklerinden dolayı bunlara **gömülü VTYS (embedded DBMS)** da denilmektedir. Bunların günümüzde yaygın olarak kullanılanlarından biri `SQLite` ürünüdür. SQLite hem Windows, hem Unix/Linux, hem Mac OS X hem de mobil işletim sistemlerinde de kullanılabilmektedir. Örneğin Android sistemlerinde pek çok bilgi SQLite kullanılarak saklanmaktadır. 
 
+##### İlişkisel Veritabanları 
+
+>İlişkisel modeli kullananan veritabanlarına **ilişkisel veritabanları (relational databases)** denir.
+>İlişkisel veritabanları genel olarak tablolardan (tables), tablolar da satırlardan (records/tuple) ve sütunlardan (fields) oluşur. Tablolarda tekil olması garanti altında olan sütunlara **birincil anahtar (primary key)** denir. Veritabanı içerisindeki her tablonun birincil anahtara sahip olması tavsiye edilir. Birincil anahtar olmayan ancak tekil olan alanlar da olabilmektedir. Bu alanlara tabloda `unique` olarak belirlenir. İlişkisel veritabanlarında bilgiler birden fazla tabloda tutuluyor olabilir. Böylece bilgi birden fazla tablodan da alınabilmektedir. İdeal olarak tablolarda tekrarlı bilgi mümkün olduğunca bulunmamalıdır. Birden fazla tablo arasında geçiş yapabilmek için ortak alanlara ihtiyaç duyulur. Bu ortak alanlara **yabancı anahtar (foreign key)** denir. Bir yabancı anahtar ilişkili olduğu tablodaki bir birincil anahtara karşılık gelir. 
