@@ -26,4 +26,11 @@
 
 **Anahtar Notlar:** Bir değişken bellekte ne kadar yer ayrılacağını ve içerisinde tutulan değerin hangi formatta olacağını belirten kavrama **tür (type)** denir. 
 
-İlişkisel veritabanlarında veritabanı elemanlarının kullanılabilmesi için yaratılmış olması gerekir. Veritabanı elemanlarının yaratılması `CREATE` cümleleri ile yapılır. Veritabanı elemanlarının yaratılması (create), silinmesi (drop), güncellenmesi (alter) vb. cümlelere genel olarak **Data Definition Language (DDL)** denilmektedir. Verilerin eklenmesi (insert), silinmesi (delete), sorgulanması (select/query), güncellenmesi (update) vb. cümlelere **Data Manipulation Language(DML)** denir. 
+>İlişkisel veritabanlarında veritabanı elemanlarının kullanılabilmesi için yaratılmış olması gerekir. Veritabanı elemanlarının yaratılması `CREATE` cümleleri ile yapılır. Veritabanı elemanlarının yaratılması (create), silinmesi (drop), güncellenmesi (alter) vb. cümlelere genel olarak **Data Definition Language (DDL)** denilmektedir. Verilerin eklenmesi (insert), silinmesi (delete), sorgulanması (select/query), güncellenmesi (update) vb. cümlelere **Data Manipulation Language (DML)** denir. 
+
+>DML işlemleri için **CRUD** kısaltması kullanılmaktadır. CRUD işlemleri (CRUD operations) şunlardır:
+>- **C**reate
+>- **R**ead
+>- **U**pdate
+>- **D**elete
+>Aslında CRUD DDL cümleleri için de kullanılabilir. CRUD işlemlerine ilişkin cümleler VTYS'ye göre değişiklik gösterebilir ve çoğunlukla çok kapsamlı cümleler kurulabilmektedir. Hatta Standart SQL'a ilişkin cümlelerin de detayları bulunur. Bunlar bir VTYS'ye özgü olarak ayrıca öğrenilmelidir. 
