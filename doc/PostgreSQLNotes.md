@@ -179,8 +179,176 @@ inner join cities ca on aa.city_id = ca.city_id
 where f.flight_id = 5;
 ```
 
-**Soru:** Kalkış airport kodu bilinen uçuşların varış hava limanlarının isimlerini ve hangi ülkede olduklarını getiren sorgu?
+>**Soru:** Kalkış airport kodu bilinen uçuşların varış hava limanlarının isimlerini ve hangi ülkede olduklarını getiren sorgu?
 
-**Soru:** Airport kodu bilinen hava limanından yapılan uçuşların kalkış zamanını ve varış hava limanı isimlerini getiren sorgu?
+>inner join:
+```sql
+select aa.name, coa.name  
+from  
+flights f inner join airports ad on f.departure_airport_code = ad.code  
+inner join airports aa on f.arrival_airport_code = aa.code  
+inner join cities ca on aa.city_id = ca.city_id  
+inner join countries coa on coa.country_id = ca.country_id  
+where f.departure_airport_code = 'KPN';
+```
+>self join
 
-**Soru:** city_id'si bilinen bir şehirden yapılan belirli bir tarih-zamandaki uçuşların kalkış zamanı, kalkış havalimanı ismi, varış havalimanı ismi ve varış havalimanının ait olduğu şehir bilgilerini getiren sorgu?
+```sql
+select aa.name, coa.name  
+from  
+flights f, airports ad, airports aa, cities ca, countries coa  
+where f.departure_airport_code = ad.code and f.arrival_airport_code = aa.code  
+and aa.city_id = ca.city_id and  coa.country_id = ca.country_id  
+and f.departure_airport_code = 'KPN';
+```
+
+>**Soru:** Airport kodu bilinen hava limanından yapılan uçuşların kalkış zamanını ve varış hava limanı isimlerini getiren sorgu?
+
+>inner join
+
+```sql
+select f.date_time, aa.name  
+from  
+airports ad inner join flights f on ad.code = f.departure_airport_code  
+inner join airports aa on f.arrival_airport_code = aa.code  
+where f.departure_airport_code = 'KPN';
+```
+
+>**Soru:** city_id'si bilinen bir şehirden yapılan belirli bir tarih-zamandaki uçuşların kalkış zamanı, kalkış havalimanı ismi, varış havalimanı ismi ve varış havalimanının ait olduğu şehir bilgilerini getiren sorgu?
+
+>inner join
+
+```sql
+select f.date_time, ad.name, aa.name, ca.name  
+from  
+cities c inner join airports ad on c.city_id = ad.city_id  
+inner join flights f on ad.code = f.departure_airport_code  
+inner join airports aa on f.arrival_airport_code = aa.code  
+inner join cities ca on aa.city_id = ca.city_id  
+where c.city_id = '326' and f.date_time = '2024-08-25 00:00:00.000000';
+```
+
+>PostgreSQL'de akış oluşturmak için en azından bir **anonim blok (anonymous block)** içerisinde olmak gerekir. Standart SQL (yani CRUD cümleleri) bir blok içerisinde yazılmak zorunda değildir. Blok içerisindeki kodların iki tane tek tırnak arasında yazılması gerekir. Bu anlamda `$$` da tek tırnak anlamındadır. PostgreSQL'de test amaçlı bir takım çıktılar (output) oluşturmak için `raise deyimi (raise statement)` kullanılabilir. Biz burada raise deyimini `notice` ile birlikte kullanacağız. Bir blok içerisinde değişken bildirimleri declare bölümü içerisinde önce isim sonra tür bilgisi gelecek şekilde yapılır:
+>
+>`name varchar(256);`
+>Değişkene bildirim noktasında değer verilebilir (initialization). Blok içerisinde akış `begin-end` arasında oluşturulur. Atama işlemi `=` operatörü ile yapılabildiği gibi `:=` operatörü ile de yapılabilmektedir. raise deyiminde `%` karakteri yer tutucu (placeholder) ya da diğer ismiyle format karakteri (format specifier) olarak kullanılabilmektedir. Bu durumda raise deyiminin yazısı içerisinde `%` karakteri çıkartılması istenirse `%%` biçiminde kullanılmalıdır.
+
+```sql
+do  
+$$  
+    declare  
+        first_name varchar(256) = 'Oğuz';  
+        last_name varchar(256);  
+    begin  
+        last_name = 'Karan';  
+        raise notice 'Hello % %', first_name, last_name;  
+    end  
+$$;
+```
+
+
+```sql
+do  
+'  
+    declare        
+	    first_name varchar(256) = $$Oğuz$$;
+	    last_name varchar(256);    
+    begin        
+	    last_name = $$Karan$$;        
+	    raise notice $$Hello % %$$, first_name, last_name;    
+	end
+';
+```
+
+##### Fonksiyonlar
+>Programlama dillerinde akış içerisinde gerektiğinde çalıştırılabilen alt programlar yazılabilir. PostgreSQL'de bir alt program çeşitli biçimlerde yazılabilir. Fonksiyon da alt program oluşturmanın bir yöntemidir. Fonksiyon `create function` veya `create or replace function` cümleleri ile yazılabilir. Bir fonksiyonun ismi, hangi alt programın çalıştırılacağını (call/invoke) belirtme için gereklidir. Bir fonksiyonun çağrılırken aldığı ve fonksiyon içerisinde kullanılabilen değişkenlerine **parametre değişkenleri (parameter variables)** denir. Fonksiyon çağrısı bittiğinde çağrılan noktaya bir değer ile geri dönmesine **geri dönüş değeri (return value)** denir. Bir fonksiyonun geri dönüş değeri bilgisi aslında fonksiyonun döndüğü değere ilişkin türü belirtir. Fonksiyon yazılırken blok için hangi dilde yazılacağı belirtilir. Çünkü PostgreSQL'de fonksiyon çeşitli diller (perl, ruby, python vb.) kullanılarak yazılabilmektedir. Ancak PostgreSQL'in resmi dili `plpgsql` olduğundan ağırlıklı olarak bu dilde yazılır. Biz de kursumuzda genel olarak `plpgsql` kullanacağız. Ancak dillere ilişkin bazı örnekleri vereceğiz. Fonksiyonun geri dönüş değeri varsa bu değer fonksiyon içerisinde **return deyimi (return statement)** ile oluşturulur. return deyimi bir ifade ile kullanıldığında o ifadenin değerine geri dönülmüş olur. Fonksiyon çağrılırken parametre değişkenleri için geçilen ifadelere **argümanlar (arguments)** denir. Aşağıdaki örnek amaçlı yazılmış fonksiyonu inceleyiniz:
+
+```sql
+create or replace function add_two_ints(a int, b int)  
+returns int  
+as  
+$$  
+    declare  
+        total int;  
+    begin  
+        total = a + b;  
+  
+        return total;  
+    end  
+$$ language plpgsql;  
+```
+
+```sql
+do  
+$$  
+    declare  
+        x int = 10;  
+        y int = 20;  
+        sum int;  
+    begin  
+        sum = add_two_ints(x, y);  
+  
+        raise notice '% + % = %', x, y, sum;  
+    end  
+$$;
+```
+
+>Aşağıdaki örnek amaçlı yazılmış fonksiyonu inceleyiniz
+
+```sql
+create or replace function add_two_ints(a int, b int)  
+returns int  
+as  
+$$  
+    begin  
+        return a + b;  
+    end  
+$$ language plpgsql;  
+```
+
+```sql
+do  
+$$  
+    declare  
+        x int = 10;  
+        y int = 20;  
+        sum int;  
+    begin  
+        sum = add_two_ints(x, y);  
+  
+        raise notice '% + % = %', x, y, sum;  
+    end  
+$$;
+```
+
+>PostgreSQL'de fonksiyon parametre değişkenlerine isim verilmeyip sadece türleri yazılabilir. Bu durumda fonksiyon içerisinde parametre değişkenlerine 1 değerinde başlamak üzere `$` atomu ile birliktge bir sayı verilir. 1 birinci parametreyi eder. Aşağıdaki örnek amaçlı yazılmış fonksiyonu inceleyiniz
+
+```sql
+create or replace function add_two_ints(int, int)  
+returns int  
+as  
+$$  
+    begin  
+        return $1 + $2;  
+    end  
+$$ language plpgsql;  
+```
+
+```sql
+do  
+$$  
+    declare  
+        x int = 10;  
+        y int = 20;  
+        sum int;  
+    begin  
+        sum = add_two_ints(x, y);  
+  
+        raise notice '% + % = %', x, y, sum;  
+    end  
+$$;
+```
+
+##### Function Overloading
+
+>PostgreSQL'de bir veritabanı içerisinde aynı isimde birden fazla fonksiyon yazılabilmektedir. Bu kavrama **function overloading** denir. Bir veritabanında iki fonksiyonun aynı isimde olacak şekilde yaratılabilmesi için parametrik yapılarının farklı olması gerekir. 
