@@ -261,7 +261,8 @@ do
 ```
 
 ##### Fonksiyonlar
->Programlama dillerinde akış içerisinde gerektiğinde çalıştırılabilen alt programlar yazılabilir. PostgreSQL'de bir alt program çeşitli biçimlerde yazılabilir. Fonksiyon da alt program oluşturmanın bir yöntemidir. Fonksiyon `create function` veya `create or replace function` cümleleri ile yazılabilir. Bir fonksiyonun ismi, hangi alt programın çalıştırılacağını (call/invoke) belirtme için gereklidir. Bir fonksiyonun çağrılırken aldığı ve fonksiyon içerisinde kullanılabilen değişkenlerine **parametre değişkenleri (parameter variables)** denir. Fonksiyon çağrısı bittiğinde çağrılan noktaya bir değer ile geri dönmesine **geri dönüş değeri (return value)** denir. Bir fonksiyonun geri dönüş değeri bilgisi aslında fonksiyonun döndüğü değere ilişkin türü belirtir. Fonksiyon yazılırken blok için hangi dilde yazılacağı belirtilir. Çünkü PostgreSQL'de fonksiyon çeşitli diller (perl, ruby, python vb.) kullanılarak yazılabilmektedir. Ancak PostgreSQL'in resmi dili `plpgsql` olduğundan ağırlıklı olarak bu dilde yazılır. Biz de kursumuzda genel olarak `plpgsql` kullanacağız. Ancak dillere ilişkin bazı örnekleri vereceğiz. Fonksiyonun geri dönüş değeri varsa bu değer fonksiyon içerisinde **return deyimi (return statement)** ile oluşturulur. return deyimi bir ifade ile kullanıldığında o ifadenin değerine geri dönülmüş olur. Fonksiyon çağrılırken parametre değişkenleri için geçilen ifadelere **argümanlar (arguments)** denir. Aşağıdaki örnek amaçlı yazılmış fonksiyonu inceleyiniz:
+
+>Programlama dillerinde akış içerisinde gerektiğinde çalıştırılabilen alt programlar yazılabilir. PostgreSQL'de bir alt program çeşitli biçimlerde yazılabilir. Fonksiyon da alt program oluşturmanın bir yöntemidir. Fonksiyon `create function` veya `create or replace function` cümleleri ile yazılabilir. Bir fonksiyonun ismi, hangi alt programın çalıştırılacağını (call/invoke) belirtme için gereklidir. Bir fonksiyonun çağrılırken aldığı ve fonksiyon içerisinde kullanılabilen değişkenlerine **parametre değişkenleri (parameter variables)** denir. Fonksiyon çağrısı bittiğinde çağrılan noktaya bir değer ile geri dönmesine **geri dönüş değeri (return value)** denir. Bir fonksiyonun geri dönüş değeri bilgisi aslında fonksiyonun döndüğü değere ilişkin türü belirtir. Fonksiyon yazılırken blok için hangi dilde yazılacağı belirtilir. Çünkü PostgreSQL'de fonksiyon çeşitli diller (perl, ruby, python vb.) kullanılarak yazılabilmektedir. Ancak PostgreSQL'in resmi dili `plpgsql` olduğundan ağırlıklı olarak bu dilde yazılır. Biz de kursumuzda genel olarak `plpgsql` kullanacağız. Ancak dillere ilişkin bazı örnekleri vereceğiz. Fonksiyonun geri dönüş değeri varsa bu değer fonksiyon içerisinde **return deyimi (return statement)** ile oluşturulur. return deyimi bir ifade ile kullanıldığında o ifadenin değerine geri dönülmüş olur. Fonksiyon çağrılırken parametre değişkenleri için geçilen ifadelere **argümanlar (arguments)** denir. PostgreSQL'de pek çok hazır fonksiyon (built-in) bulunmaktadır. Veritabanı programcısı yapacağı bir iş için hazır fonksiyonlar varsa öncelikle o fonksiyonları tercih etmelidir. Fonksiyonların yazılması basit olsa bile hazır olanları kullanması verimi ve performansı genel olarak artırır. Aşağıdaki örnek amaçlı yazılmış fonksiyonu inceleyiniz:
 
 ```sql
 create or replace function add_two_ints(a int, b int)  
@@ -351,4 +352,210 @@ $$;
 
 ##### Function Overloading
 
->PostgreSQL'de bir veritabanı içerisinde aynı isimde birden fazla fonksiyon yazılabilmektedir. Bu kavrama **function overloading** denir. Bir veritabanında iki fonksiyonun aynı isimde olacak şekilde yaratılabilmesi için parametrik yapılarının farklı olması gerekir. 
+>PostgreSQL'de bir veritabanı içerisinde aynı isimde birden fazla fonksiyon yazılabilmektedir. Bu kavrama **function overloading** denir. Bir veritabanında birden fazla fonksiyonun aynı isimde olacak şekilde yaratılabilmesi için parametrik yapılarının farklı olması gerekir. Aslında PostgreSQL'de her fonksiyonun bir imzası (signature) vardır. İmza, fonksiyonun ismi ve parametrik yapısıdır. Kural şudur: **Bir veritabanı içerisinde aynı imzaya sahip birden  fazla fonksiyon yaratılamaz. Başka bir deyişle bir veritabanı içerisinde yaratılan fonksiyonların her birisinin imzası farklı olmalıdır.** Bu kurala aynı isimde fonksiyonların imzalarının farklı olması için parametrik yapılarının farklı olması gerekir. Bir fonksiyon çağrısında hangi fonksiyonun çağrılacağına karar verilmesi sürecine **function overload resolution** denir. Buna ilişkin kurallar örneklerle ele alınacaktır. Veritabanı programlamada genel olarak argümaların türleri ile karşılık geldikleri parametrelerin türlerinin aynı olduğu senaryolar karşımıza çıkmaktadır (best match). 
+
+>Aşağıdaki demo fonksiyonlar overload edilmiştir
+
+```sql
+create or replace function add_two_ints(int, int)  
+returns int  
+as  
+$$  
+    begin  
+        return $1 + $2;  
+    end  
+$$ language plpgsql;  
+  
+create or replace function add_two_ints(bigint, bigint)  
+returns bigint  
+as  
+$$  
+    begin  
+        return $1 + $2;  
+    end  
+$$ language plpgsql;  
+  
+  
+create or replace function add_two_ints(smallint, smallint)  
+returns smallint  
+as  
+$$  
+    begin  
+        return $1 + $2;  
+    end  
+$$ language plpgsql;
+```
+
+```sql
+do  
+$$  
+    declare  
+        x int = 70000;  
+        y int = 80000;  
+        a bigint = 400000000;  
+        b bigint = 500000000;  
+        c smallint = 200;  
+        d smallint = 200;  
+    begin  
+        raise notice '% + % = %', x, y, add_two_ints(x, y);  
+        raise notice '% + % = %',a, b, add_two_ints(a, b);  
+        raise notice '% + % = %', c, d, add_two_ints(c, d);  
+    end  
+$$;
+```
+
+##### Matematiksel İşlem Yapan Fonksiyonlar
+
+>PostgreSQL'de matematiksel işlemler yapan pek çok hazır fonksiyon bulunmaktadır. Burada temel olanlar ve genel olarak kullanılanlar ele alınacaktır. 
+
+###### sqrt Fonk>>siyonu
+>Bu fonksiyon parametresi ile aldığı sayının kareköküne geri döner. Tipik olarak tüm nümerik türler için işlem yapabilmektedir. Şüphesiz tam sayılar için yine `double precison` türüne geri döner. Fonksiyona negatif bir argüman geçildiğince **çalışma zamanı hatası runtime error** oluşur.
+
+```sql
+do  
+$$  
+    begin  
+       raise notice 'sqrt(%) = %', 2, sqrt(2);  
+       raise notice 'Tekrar yapıyor musunuz?';  
+    end  
+$$;
+```
+
+```sql
+do  
+$$  
+    begin  
+       raise notice 'sqrt(%) = %', -2, sqrt(-2);  
+       raise notice 'Tekrar yapıyor musunuz?';  
+    end  
+$$;
+```
+
+###### pow Fonksiyonu
+Bu fonksiyon $$a^b$$ işlemini yapar.
+
+```sql
+do  
+$$  
+    begin  
+       raise notice 'pow(%, %) = %', 2.34, 4.567, pow(2.34, 4.567);  
+       raise notice 'Tekrar yapıyor musunuz?';  
+    end  
+$$;
+```
+
+>**Sınıf Çalışması:** mapdb isimli bir veritabanı oluşturunuz. Bu veritabanında nokta çiftlerinin koordinat bilgilerini tutan `coordinate_pairs` isimli bir tablo yaratınız. Tablo içerisindeki kaydın otomatik artan id bilgisi ile x1, y1, x2, y2 nokta değerleri `double preccision` olarak tutulacaktır. Buna göre Euclid uzaklığı bilgisini döndüren bir fonksiyon yazınız ve tüm kayıtlar için noktalarla birlikte aralarındaki uzaklığı da getiren sorguyu yazınız
+>
+>**Açıklamalar:** 
+>- Euclid uzaklığı formulü şu şekildedir:
+>$$d = \sqrt{(x1 - x2)^2 + (y1 - y2)^2}$$
+
+```sql
+create table coordinate_pairs (  
+    coordinate_pair_id serial primary key,  
+    x1 double precision not null,  
+    y1 double precision not null,  
+    x2 double precision not null,  
+    y2 double precision not null  
+);
+
+create or replace function euclidean_distance(x1 double precision, y1 double precision, x2 double precision, y2 double precision)  
+returns double precision  
+as  
+$$  
+    begin  
+       return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));  
+    end  
+$$ language plpgsql;
+
+select x1, y1, x2, y2, euclidean_distance(x1, y1, x2, y2) as distance from coordinate_pairs;
+```
+
+###### random Fonksiyonu
+
+>Bu fonksiyon `[0, 1)` aralığında rassal olarak belirlenmiş gerçek sayıya geri döner
+
+```sql
+do  
+$$  
+    begin  
+       raise notice '%', random();  
+    end  
+$$;
+```
+
+>random fonksiyonu kullanılarak aşağıdaki gibi belirli aralıkta rassal sayılar üretebilen fonksiyonlar overload edilebilir
+
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+    begin  
+       return floor(random() * (bound - origin) + origin);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function random_value(origin bigint, bound bigint)  
+returns bigint  
+as  
+$$  
+    begin  
+       return floor(random() * (bound - origin) + origin);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function random_value(origin double precision, bound double precision)  
+returns double precision  
+as  
+$$  
+    begin  
+       return random() * (bound - origin) + origin;  
+    end  
+$$ language plpgsql;  
+
+do  
+$$  
+    begin  
+       raise notice '%', random_value(10, 21);  
+       raise notice '%', random_value(4000000000, 10000000000);  
+       raise notice '%', random_value(2.345, 2.346);  
+    end  
+$$;
+```
+
+###### Yuvarlama İşlemi Yapan Önemli Fonksiyonlar
+
+>Tam sayıya yuvarlama işlemi yapan bazı önemli fonksiyonlar şunlardır:
+>- **floor:** Parmetresi ile aldığı gerçek (real) sayıdan küçük en büyük tamsayıya geri döner.
+>- **round:** Bilimsel yuvarlama yapar. Sayının noktadan sonraki kısmı `>= 0.5` ise bir üst tamsayıya, `< 0.5` ise noktadan sonraki atılmış tamsayıya geri döner
+>- **ceil:** Parmetresi ile aldığı gerçek (real) sayıdan büyük en küçük tamsayıya geri döner.
+
+```sql
+do  
+$$  
+    declare  
+        val double precision = 2.545;  
+    begin  
+       raise notice 'floor(%) = %', val, floor(val);  
+       raise notice 'round(%) = %', val, round(val);  
+       raise notice 'ceil(%) = %', val, ceil(val);  
+    end  
+$$
+```
+
+```sql
+do  
+$$  
+    declare  
+        val double precision = -2.545;  
+    begin  
+       raise notice 'floor(%) = %', val, floor(val);  
+       raise notice 'round(%) = %', val, round(val);  
+       raise notice 'ceil(%) = %', val, ceil(val);  
+    end  
+$$
+```
+
+
+
