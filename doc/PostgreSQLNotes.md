@@ -3,7 +3,11 @@
 ### Eğitmen: Oğuz KARAN
 
 >PostgreSQL free olarak kullanılabilen güçlü bir veritabanı yönetim sistemidir. PostgreSQL 
->**[https://www.enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.oracle.com/tr/java/technologies/downloads/)**  bağlantısından ilgili işletim sistemine göre indirilip yüklenebilmektedir. 
+>**[https://www.enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.oracle.com/tr/java/technologies/downloads/)**  bağlantısından ilgili işletim sistemine göre indirilip yüklenebilmektedir.  Ayrıca PostgreSQL `docker` platformu ile kullanılabilmektedir. Docker image'ı olarak PostgreSQL'in çekilebilmesi (pull) her host sistemde aşağıdaki gibi yapılabilir:
+
+	`docker pull postgres:latest`
+
+>PostgreSQL'in dili default olarak **plpgsql** olarak adlandırılır. Ancak PostgreSQL içerisinde belirli koşullar altında `Python, Perl, Ruby vb` diller de kullanılabilmektedir. Ayrıca C ve C++yazılmış kütüphanelere de erişim mümkündür.
 
 >PostgreSQL'de iki türlü yorum satırı (comment line) bulunur:
 
@@ -408,7 +412,7 @@ $$;
 
 >PostgreSQL'de matematiksel işlemler yapan pek çok hazır fonksiyon bulunmaktadır. Burada temel olanlar ve genel olarak kullanılanlar ele alınacaktır. 
 
-###### sqrt Fonk>>siyonu
+###### sqrt Fonksiyonu
 >Bu fonksiyon parametresi ile aldığı sayının kareköküne geri döner. Tipik olarak tüm nümerik türler için işlem yapabilmektedir. Şüphesiz tam sayılar için yine `double precison` türüne geri döner. Fonksiyona negatif bir argüman geçildiğince **çalışma zamanı hatası runtime error** oluşur.
 
 ```sql
