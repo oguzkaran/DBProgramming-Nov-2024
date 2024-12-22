@@ -133,6 +133,21 @@ create table flights (
     date_time datetime not null  
     -- ...  
 );
+create table passengers (
+	citizen_id char(30) primary key,
+	first_name nvarchar(200) not null,
+	last_name nvarchar(200) not null,
+	email nvarchar(500) not null
+	-- ...
+);
+
+create table passengers_to_flights (
+	passenger_to_flight_id bigint primary key identity(1, 1),
+	passenger_id char(30) foreign key references passengers(citizen_id) not null,
+	flight_id bigint foreign key references flights(flight_id) not null,
+	reservation_date_time datetime default(getdate()) not null,
+	price real not null
+);
 ```
 
 >Bir tabloya veri eklemek için **insert into** cümlesi kullanılır. insert into cümlesinin tipik bir kullanımı aşağıdaki gibidir:
@@ -393,24 +408,26 @@ select power(@a, @b)
 >$$d = \sqrt{(x1 - x2)^2 + (y1 - y2)^2}$$
 
 ```sql
+create database mapdb;
+
+use mapdb
+
 create table coordinate_pairs (  
-    coordinate_pair_id serial primary key,  
-    x1 double precision not null,  
-    y1 double precision not null,  
-    x2 double precision not null,  
-    y2 double precision not null  
+    coordinate_pair_id int primary key identity(1, 1),  
+    x1 real not null,  
+    y1 real not null,  
+    x2 real not null,  
+    y2 real not null  
 );
 
-create or replace function euclidean_distance(x1 double precision, y1 double precision, x2 double precision, y2 double precision)  
-returns double precision  
-as  
-$$  
-    begin  
-       return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));  
-    end  
-$$ language plpgsql;
+create function euclidean_distance(@x1 real, @y1 real, @x2 real, @y2 real)
+returns real
+as
+begin
+	return sqrt(power(@x1 - @x2, 2) + power(@y1 - @y2, 2))
+end
 
-select x1, y1, x2, y2, euclidean_distance(x1, y1, x2, y2) as distance from coordinate_pairs;
+select x1, y1, x2, y2, dbo.euclidean_distance(x1, y1, x2, y2) as distance from coordinate_pairs;
 ```
 
 ###### rand Fonksiyonu
@@ -432,39 +449,189 @@ begin
 end
 ```
 
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ###### Yuvarlama İşlemi Yapan Önemli Fonksiyonlar
 
 >Tam sayıya yuvarlama işlemi yapan bazı önemli fonksiyonlar şunlardır:
 >- **floor:** Parmetresi ile aldığı gerçek (real) sayıdan küçük en büyük tamsayıya geri döner.
->- **round:** Bilimsel yuvarlama yapar. Sayının noktadan sonraki kısmı `>= 0.5` ise bir üst tamsayıya, `< 0.5` ise noktadan sonraki atılmış tamsayıya geri döner
->- **ceil:** Parmetresi ile aldığı gerçek (real) sayıdan büyük en küçük tamsayıya geri döner.
+>- **round:** Bilimsel yuvarlama yapar. Sayının noktadan sonraki kısmı `>= 0.5` ise bir üst tamsayıya, `< 0.5` ise noktadan sonraki atılmış tamsayıya geri döner. Bu fonksiyonun parametreleri ileride ele alınacaktır.
+>- **ceiling:** Parametresi ile aldığı gerçek (real) sayıdan büyük en küçük tamsayıya geri döner.
 
 ```sql
-do  
-$$  
-    declare  
-        val double precision = 2.545;  
-    begin  
-       raise notice 'floor(%) = %', val, floor(val);  
-       raise notice 'round(%) = %', val, round(val);  
-       raise notice 'ceil(%) = %', val, ceil(val);  
-    end  
-$$
+declare @val real = 3.4
+
+select floor(@val), ceiling(@val)
+set @val = -3.4
+select floor(@val), ceiling(@val)
+```
+
+##### Yazılarla İşlem Yapan Fonksiyonlar
+
+>Neredeyse tüm uygulamalarda az ya da çok yazılarla işlem yapılır. Programlamada yazı kavramına **string** denir. SqlServer'da yazılar işlem yapan pek çok yararlı fonksiyon vardır (string function). Programcı yazı ile ilgili bir işlem için varsa buradaki fonksiyonları kullanmalı, yoksa yine buradaki fonksiyonları da kullanarak fonksiyonlarını yazmalıdır. Yazılar Sql Server'da **immutable**'dır. Yani yazı üzerinde işlem bir fonksiyon yazının orjinalini değiştiremez. Değişiklik yapan bir fonksiyon değişiklik yapılmış yeni yazıya geri döner. 
+
+###### replicate Fonksiyonu
+
+>Bu fonksiyon yazıyı çoğaltmak için kullanılır
+
+```sql
+declare @str nvarchar(250) = 'ankara'
+declare @str_replicate nvarchar(250)
+
+set @str_replicate =  replicate(@str, 5)
+
+select @str, @str_replicate
+```
+
+###### len Fonksiyonu
+
+>Parametresi ile aldığı yazının  karakter sayısına (uzunluğu) geri döner
+
+```sql
+declare @str nvarchar(250) = 'ankara'
+
+select len(@str)
+```
+###### Yazıların Birleştirilmesi (concatenation)
+
+>Yazıların birleştirilmesi işlemi concat fonksiyonu ile yapılabilir. Yazı birleştirmesi işlemi çok fazla karşılaşılan bir işlem olduğundan `+` operatörü ile de yazı birleştirmesi yapılabilir
+
+```sql
+declare @first_name nvarchar(250) = 'Oğuz'
+declare @last_name nvarchar(250) = 'Karan'
+declare @full_name nvarchar(500)
+
+set @full_name = concat(@first_name, ' ', @last_name)
+select @full_name
 ```
 
 ```sql
-do  
-$$  
-    declare  
-        val double precision = -2.545;  
-    begin  
-       raise notice 'floor(%) = %', val, floor(val);  
-       raise notice 'round(%) = %', val, round(val);  
-       raise notice 'ceil(%) = %', val, ceil(val);  
-    end  
-$$
+declare @first_name nvarchar(250) = 'Oğuz'
+declare @last_name nvarchar(250) = 'Karan'
+declare @full_name nvarchar(500)
+
+set @full_name = @first_name + ' ' + @last_name
+select @full_name
 ```
 
+>concat_ws fonksiyonu ile verilen bir ayraç (delimiter/seperator) ile birleştirme yapılır. Bu fonksiyon Sql Server 2017 ile eklenmiştir
 
+```sql
+declare @first_name nvarchar(250) = 'Oğuz'
+declare @last_name nvarchar(250) = 'Karan'
+declare @full_name nvarchar(500)
 
+set @full_name = concat_ws('-', @first_name, @last_name)
+select @full_name
+```
+
+###### left ve right fonksiyonları 
+
+>Bu fonksiyonlar sırasıyla soldan ve sağdan istenilen sayıda karakterin yazı olarak elde edilmesini sağlar
+
+```sql
+declare @str nvarchar(250) = 'Ankara'
+
+select left(@str, 4), right(@str, 4)
+
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı bir yazının yine parametresi ile aldığı ilk count karakterini almak koşuluyla diğer karakterlerini üçüncü parametresi ile aldığı karakter ile değiştiren `hide_text_right` fonksiyonu yazınız. 
+
+```sql
+create function hide_text_right(@str nvarchar(max), @count int, @ch char(1))
+returns nvarchar(max)
+begin
+	return left(@str, @count) + replicate(@ch, len(@str) - @count)
+end
+```
+
+```sql
+select 
+dbo.hide_text_right(p.citizen_id, 2, '*') as citizen_id,
+p.first_name + ' ' + p.last_name as fullname,
+dbo.hide_text_right(email, 3, '*') as email,
+f.date_time, f.departure_airport_code, f.arrival_airport_code,
+pf.price
+from 
+flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id
+inner join passengers p on pf.passenger_id = p.citizen_id
+```
+
+###### str Fonksiyonu 
+
+>Bu fonksiyon nümerik bir değerin yazısal karşılığını döndürür
+
+```sql
+select 
+dbo.hide_text_right(p.citizen_id, 2, '*') as citizen_id,
+p.first_name + ' ' + p.last_name as fullname,
+dbo.hide_text_right(email, 3, '*') as email,
+f.date_time, f.departure_airport_code, f.arrival_airport_code,
+dbo.hide_text_right(str(pf.price, 4), 1, 'X') as price
+from 
+flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id
+inner join passengers p on pf.passenger_id = p.citizen_id
+```
+
+###### substring Fonksiyonu
+
+>Bu fonksiyon yazının belirli bir parçasını elde etmek için kullanılır
+
+```sql
+declare @str nvarchar(200) = 'ankara'
+
+select substring(@str, 3, len(@str)), substring(@str, 3, 3)
+```
+
+###### rtrim, ltrim ve trim Fonksiyonları
+
+>Bu fonksiyonlar sırasıyla sağdan, soldan ve sağdan-soldan boşluk karakterini atarlar. trim fonksiyonu SqlServer 2017 ile eklenmiştir. İkinci parametreye argüman geçilirse geçilen argümana ilişkin karakterleri atar
+
+```sql
+declare @str nvarchar(200) = '       C ve Sistem Programcıları Derneği                   '
+
+select '(' + rtrim(@str) + ')', '(' + ltrim(@str) + ')', '(' + trim(@str) + ')'
+```
+
+>SqlServer 2017 öncesinde trim işlemi için aşağıdaki fonksiyon yazılabilir
+
+```sql
+create function csd_trim(@str nvarchar(max))
+returns nvarchar(max)
+as
+begin
+	return ltrim(rtrim(@str))
+end
+```
+
+```sql
+declare @str nvarchar(200) = '       C ve Sistem Programcıları Derneği                   '
+
+select '(' + rtrim(@str) + ')', '(' + ltrim(@str) + ')', '(' + dbo.csd_trim(@str) + ')'
+```
+
+###### upper ve lower fonksiyonları
+
+>Bu fonksiyonları yazının tüm harflerini sırasıyla büyük harfe ve küçük harfe çevirir. Bu fonksiyonlar çalışılan dile göre çevirme işlemlerini yaparlar. Bu durumun detayları ileride ele alınacaktır
+
+```sql
+create function capitalize(@str nvarchar(max))
+returns nvarchar(max)
+as
+begin
+	return upper(left(@str, 1)) + lower(substring(@str, 2, len(@str)))
+end
+```
+
+```sql
+select 
+dbo.hide_text_right(p.citizen_id, 2, '*') as citizen_id,
+dbo.capitalize(p.first_name) + ' ' + dbo.capitalize(p.last_name) as fullname,
+dbo.hide_text_right(email, 3, '*') as email,
+f.date_time, f.departure_airport_code, f.arrival_airport_code,
+dbo.hide_text_right(str(pf.price, 4), 1, 'X') as price
+from 
+flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id
+inner join passengers p on pf.passenger_id = p.citizen_id
+```
+
+>Sql Server'daki diğer string fonksiyonları konular içerisinde kullanılacaktır.

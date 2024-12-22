@@ -533,7 +533,7 @@ $$;
 >Tam sayıya yuvarlama işlemi yapan bazı önemli fonksiyonlar şunlardır:
 >- **floor:** Parmetresi ile aldığı gerçek (real) sayıdan küçük en büyük tamsayıya geri döner.
 >- **round:** Bilimsel yuvarlama yapar. Sayının noktadan sonraki kısmı `>= 0.5` ise bir üst tamsayıya, `< 0.5` ise noktadan sonraki atılmış tamsayıya geri döner
->- **ceil:** Parmetresi ile aldığı gerçek (real) sayıdan büyük en küçük tamsayıya geri döner.
+>- **ceil:** Parametresi ile aldığı gerçek (real) sayıdan büyük en küçük tamsayıya geri döner.
 
 ```sql
 do  
@@ -561,5 +561,97 @@ $$
 $$
 ```
 
+##### Yazılarla İşlem Yapan Fonksiyonlar
+
+>Neredeyse tüm uygulamalarda az ya da çok yazılarla işlem yapılır. Programlamada yazı kavramına **string** denir. PostgreSQL'de yazılar işlem yapan pek çok yararlı fonksiyon vardır (string function). Programcı yazı ile ilgili bir işlem için varsa buradaki fonksiyonları kullanmalı, yoksa yine buradaki fonksiyonları da kullanarak fonksiyonlarını yazmalıdır. Yazılar PostgreSQL'de **immutable**'dır. Yani yazı üzerinde işlem bir fonksiyon yazının orjinalini değiştiremez. Değişiklik yapan bir fonksiyon değişiklik yapılmış yeni yazıya geri döner. 
 
 
+###### repeat Fonksiyonu
+
+>Bu fonksiyon parametresi ile aldığı yazıyı iki parametresi ile aldığı değer kadar çoklar
+
+```sql
+do  
+$$  
+    declare  
+        ch varchar(1) = '*';  
+        str varchar(100) = 'Ankara';  
+    begin  
+       raise notice '%', repeat(ch, 3);  
+       raise notice '%', repeat(str, 3);  
+    end  
+$$
+```
+
+###### length Fonksiyonu
+
+>Bu fonksiyon yazının uzunluğunu (karakter sayısını) döndürür.
+
+```sql
+do  
+$$  
+    declare  
+        str varchar(100) = 'Ankara';  
+    begin  
+       raise notice '%', length(str);  
+    end  
+$$
+```
+
+###### Yazıların Birleştirilmesi (concatenation)
+
+>Yazıların birleştirilmesi işlemi concat fonksiyonu ile yapılabilir. Yazı birleştirmesi işlemi çok fazla karşılaşılan bir işlem olduğundan `||` operatörü ile de yazı birleştirmesi yapılabilir.
+
+```sql
+do  
+$$  
+    declare  
+        first_name varchar(100) = 'Oğuz';  
+        last_name varchar(100) = 'Karan';  
+    begin  
+       raise notice '%', concat(first_name, ' ', last_name);  
+       raise notice '%', first_name || ' ' || last_name;  
+    end  
+$$
+```
+
+###### left ve right Fonksiyonları
+
+>Bu fonksiyonlar sırasıyla soldan ve sağdan istenilen sayıda karakterin yazı olarak elde edilmesini sağlar
+
+```sql
+do  
+$$  
+    declare  
+        str varchar(100) = 'Ankara';  
+    begin  
+       raise notice '%', left(str, 4);  
+       raise notice '%', right(str, 4);  
+    end  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı bir yazının yine parametresi ile aldığı ilk count karakterini almak koşuluyla diğer karakterlerini üçüncü parametresi ile aldığı karakter ile değiştiren `hide_text_right` fonksiyonu yazınız. 
+
+```sql
+create or replace function hide_text_right(str varchar, count int, ch char(1))  
+returns varchar  
+as  
+$$  
+    begin  
+        return left(str, count) || repeat(ch, length(str) - count);  
+    end  
+$$ language plpgsql;
+```
+
+```sql
+select 
+hide_text_right(p.citizen_id, 2, '*') as citizen_id,
+p.first_name + ' ' + p.last_name as fullname,
+hide_text_right(email, 3, '*') as email,
+f.date_time, f.departure_airport_code, f.arrival_airport_code,
+pf.price
+from 
+flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id
+inner join passengers p on pf.passenger_id = p.citizen_id
+```
