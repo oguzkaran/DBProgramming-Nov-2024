@@ -635,3 +635,22 @@ inner join passengers p on pf.passenger_id = p.citizen_id
 ```
 
 >Sql Server'daki diğer string fonksiyonları konular içerisinde kullanılacaktır.
+
+>**Sınıf Çalışması:** Aşağıda açıklanan **csd_initcap** isimli fonksiyonu yazınız
+
+>**Açıklamalar:**
+>- Fonksiyon parametresi ile aldığı bir yazıyı ilk karakteri büyük geri kalan karakterleri küçük olacak şekilde yapacaktır. Örneğin `bUGÜN HAVA ÇOK GÜZEL` yazısı `Bugün hava çok güzel` biçiminde elde edilecektir.
+>- Fonksiyondan elde edilen yazıda alfabetik olmayan karakterler aynen korunacaktır
+
+>Bir sorgudan elde edilen tek bir bileşen, aynı zamanda tek bir kayıt da içeriyorsa elde edilen değer bir değişkene aşağıdaki gibi verilebilir:
+
+```sql
+declare @country_id int = (select country_id from countries where code = 'TR')  
+  
+select @country_id
+```
+
+>Önceliklendirme açısından parantez zorunludur. Aksi durumda error oluşur.
+
+##### Tablo Döndüren Fonksiyonlar
+

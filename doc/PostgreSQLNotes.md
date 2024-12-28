@@ -53,6 +53,22 @@ create table flights (
     date_time timestamp not null  
     -- ...  
 );
+
+create table passengers (  
+    citizen_id char(30) primary key,  
+    first_name varchar(200) not null,  
+    last_name varchar(200) not null,  
+    email varchar(500) not null  
+    -- ...  
+);  
+  
+create table passengers_to_flights (  
+    passenger_to_flight_id bigserial primary key,  
+    passenger_id char(30) references passengers(citizen_id) not null,  
+    flight_id bigint references flights(flight_id) not null,  
+    reservation_date_time timestamp default(current_timestamp) not null,  
+    price real not null  
+);
 ```
 
 >Bir tabloya veri eklemek için **insert into** cümlesi kullanılır. insert into cümlesinin tipik bir kullanımı aşağıdaki gibidir:
@@ -645,13 +661,112 @@ $$ language plpgsql;
 ```
 
 ```sql
-select 
-hide_text_right(p.citizen_id, 2, '*') as citizen_id,
-p.first_name + ' ' + p.last_name as fullname,
-hide_text_right(email, 3, '*') as email,
-f.date_time, f.departure_airport_code, f.arrival_airport_code,
-pf.price
-from 
-flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id
-inner join passengers p on pf.passenger_id = p.citizen_id
+select  
+    hide_text_right(p.citizen_id, 2, '*') as citizen_id,  
+    p.first_name || ' ' || p.last_name as fullname,  
+    hide_text_right(email, 3, '*') as email,  
+    f.date_time, f.departure_airport_code, f.arrival_airport_code,  
+    pf.price  
+from  
+    flights f inner join passengers_to_flights pf on f.flight_id = pf.flight_id  
+              inner join passengers p on pf.passenger_id = p.citizen_id;
 ```
+
+
+###### initcap fonksiyonu
+
+>Bu fonksiyon yazı içerisindeki whitespace karakterlere göre ilgili kelimeleri **upper camel case** durumuna getirir
+>
+>Özellikle programlamada isimlendirme konusunda br takım convention'lar bulunmaktadır. Bu convvention'ların bazıları çok kullanıldığından zamanında adlandırılmıştır. Bu convention'lardan bazıları şunlardır:
+>**- Snake Case/Unix Style:** Bu isimlendirme biçiminde, kelimelerin tamamı küçük harf olarak yazılır. Birden fazla kelime için alttire ayraç olarak kullanılır. Örneğin `first_name`
+>**- Lower Camel Case:**  Bu isimlendirme biçiminde, ilk kelimenin baş harfi küçük geri kalan kelimelerin baş harfleri büyük ve geri kalan tüm karakterler küçük harf yapılır. Herhangi bir ayraç kullanılmaz. Örneğin: `numberOfDevices`. Bu isimlendirme `camel case` olarak da bilinir.
+>**- Upper Camel Case:** Bu isimlendirme biçiminde, tüm kelimelerin baş harfleri büyük geri kalan tüm karakterler küçük harf yapılır. Herhangi bir ayraç kullanılmaz. Örneğin: `NumberOfDevices`. Bu isimlendirme `pascal case` olarak da bilinir.
+
+
+```sql
+do  
+$$  
+    declare  
+        first_name varchar(250) := 'mEHMET fATİH';  
+        last_name varchar(250) := 'cOSKUN';  
+    begin  
+        raise notice '%', initcap(first_name) || ' '  || initcap(last_name);  
+    end  
+$$;
+```
+
+###### rtrim ve ltrim Fonsiyonları
+
+>Bu fonksiyonlar yazının sırasıyla sonundaki ve başındaki whitespace karakterleri atarlar. 
+
+```sql
+do  
+$$  
+    declare  
+        username varchar(250) := '      oguz karan    ';  
+    begin  
+        raise notice '(%), (%), (%)', rtrim(username), ltrim(username), ltrim(rtrim(username));  
+    end  
+$$;
+```
+
+###### upper ve lower Fonksiyonları
+
+>Bu fonksiyonlar yazının tamamını sırasıyla büyük harf ya da küçük harf yaparlar. 
+
+```sql
+do  
+$$  
+    declare  
+        username varchar(250) := 'oguzkaran';  
+    begin  
+        raise notice '%, %', upper(username), lower(username);  
+    end  
+$$;
+```
+
+>Bir sorgudan elde edilen tek bir bileşen, aynı zamanda tek bir kayıt da içeriyorsa elde edilen değer bir değişkene `select into` cümlesi ile verilebilir. Birden fazla kayıt içeriyorsa ilk edilenler alınır:
+
+```sql  
+do  
+$$  
+    declare  
+        country_id int;  
+        country_name varchar(250);  
+    begin  
+        select c.country_id, c.name as cid from countries c where code = 'TR' into country_id, country_name;  
+        raise notice '%, %', country_id, country_name;  
+    end  
+$$;
+```
+
+##### out Parametreli Fonksiyonlar
+
+>Bir fonksiyonun parametre değişkeni **out** olarak bildirilebilir. Bu aslında bir çeşit geri dönüş değeri gibidir. out parametreli fonksiyonlar içerisinde return deyimi kullanılmaz. Bu fonksiyonlar birden fazla değere geri dönebilmektedirler. out olarak bildirilmiş parametre değişkenlerine doğrudan atama yapılabilir. out parametreli bir fonksiyon sanki bir tabloya geri dönüyormuş gibi select cümlesi ile kullanılırlar. Bu fonksiyonlarda yine yazılacak dil belirtilir. Ancak geri dönüş değeri bilgisi yazılmaz. Bu fonksiyonlar çağrılırken out parametre değişkenlerine argüman geçilmez. Bu fonksiyonların çağrılması tablo döndüren fonksiyonlara benzese de yapı olarak farklı fonksiyonlardır. Tablo döndüren fonksiyonlar birden fazla kayıt döndürebiliken, bu fonksiyonlar bir tane kayıt döndürürler.
+
+```sql
+create or replace function get_name_and_code_by_country_id(int, out varchar(250), out char(10))  
+as  
+$$  
+    begin  
+        select c.code, c.name from countries c where c.country_id = $1 into $2, $3 ;  
+    end;  
+$$ language plpgsql;  
+  
+  
+  
+do  
+$$  
+    declare  
+        country_code char(10);  
+        country_name varchar(250);  
+    begin  
+        select * from get_name_and_code_by_country_id(1) into country_code, country_name;  
+        raise notice '%, %', country_code, country_name;  
+    end  
+$$;
+```
+
+>out parametreli fonksiyonların out parametre değişkenlerine değer verilememesi durumunda (tipik olarak sorgudan bir bilgi elde edilmediğinde) içerisinde null değer bulunur. Yukarıdaki anonim blokta 1 numaralı country_id'ye sahip bir country yoksa elde edilen değerler null olurlar. Aslında bu durum out parametreli fonksiyon olmasından değil `select into` cümlesinden kaynaklanır. 
+
+##### Tablo Döndüren Fonksiyonlar
