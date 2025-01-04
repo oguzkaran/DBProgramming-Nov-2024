@@ -770,3 +770,202 @@ $$;
 >out parametreli fonksiyonların out parametre değişkenlerine değer verilememesi durumunda (tipik olarak sorgudan bir bilgi elde edilmediğinde) içerisinde null değer bulunur. Yukarıdaki anonim blokta 1 numaralı country_id'ye sahip bir country yoksa elde edilen değerler null olurlar. Aslında bu durum out parametreli fonksiyon olmasından değil `select into` cümlesinden kaynaklanır. 
 
 ##### Tablo Döndüren Fonksiyonlar
+
+>Genel olarak bir sorgunun sonucuna yani sorguya ilişkin alanlara (projection) geri dönen fonksiyonlardır. PostgreSQL'de tablo döndüren fonksiyonlarda geri dönüş değeri bilgisinde döndürülecek tabloya (projection) ilişkin alanların tür ve isimleri birlikte bildirilir ve bu alanlara uygun projection'a sahip sorgu cümleleri yazılır. Tablo döndüren fonksiyonlarda return deyimi ile birlikte `query` anahtar sözcüğü kullanılır.  Burada geri dönüş değerine ilişkin alanlar ile ilgili sorgunun projection'ına ilişkin alanların uyumuna genel olarak fonksiyon çağrısında bakılır. Genel olarak create veya alter gibi ddl cümlelerinde doğrudan bakılmaz.
+
+```sql
+create or replace function get_airport_and_country_name_by_departure_airport_code(char(10))  
+returns table (departure_airport_name varchar(300), country_name varchar(250))  
+as  
+$$  
+    begin  
+        return query select aa.name, coa.name  
+                from  
+                    flights f inner join airports ad on f.departure_airport_code = ad.code  
+                              inner join airports aa on f.arrival_airport_code = aa.code  
+                              inner join cities ca on aa.city_id = ca.city_id  
+                              inner join countries coa on coa.country_id = ca.country_id  
+                where f.departure_airport_code = $1;  
+    end;  
+$$ language plpgsql;
+```
+
+```sql
+create or replace function get_flight_info_by_flight_id(bigint)  
+returns table (flight_id bigint, date_time timestamp, departure_airport_name varchar(300),   
+               departure_city_name varchar(250), arrival_airport_name varchar(300), arrival_city_name varchar(250))  
+as  
+$$  
+    begin  
+        return query select f.flight_id, f.date_time, ad.name departure, cd.name, aa.name arrival, ca.name  
+                     from flights f inner join airports ad on f.departure_airport_code = ad.code  
+                                    inner join airports aa on f.arrival_airport_code = aa.code  
+                                    inner join cities cd on ad.city_id = cd.city_id  
+                                    inner join cities ca on aa.city_id = ca.city_id  
+                     where f.flight_id = $1;  
+    end;  
+$$ language plpgsql;
+```
+
+##### if Deyimi
+
+>if deyimi hemen hemen tüm programlama dillerinde ve akış içerisinde koşula bağlı olarak akışın yönlendirilmesini sağlayan önemli bir kontrol deyimidir. if deyiminin genel biçimi şu şekildedir:
+
+```sql
+if <koşul ifadesi> then 
+	<deyim>
+[else
+	<deyim>
+]
+end if;
+```
+
+>if deyiminde herhangi bir `begin-end` aralığına ihtiyaç yoktur. if deyiminde else kısmı olmak zorunda değildir. Bu durumda koşul gerçekleştiğinde varsa else anahtar sözcüğüne kadar yoksa end if'e kadar doğru kısmına ilişkin kodlar yazılır. else kısmı ise end if'e kadar olan kodlardır. 
+
+
+```sql
+do  
+$$  
+    declare  
+        value int;  
+    begin  
+        value = random() * (101 + 100) - 100;  
+        if value > 0 then  
+            raise notice '% is positive', value;  
+        else  
+            raise notice '% is not positive', value;  
+        end if;  
+    end;  
+$$
+```
+
+>Aşağıdaki örnekte if deyiminin else kısmında başka bir if deyimi yazılmıştır. Bu şekilde yazılması başka ayrık kontroller de söz konusu olduğunda karmaşık olabilmektedir
+
+```sql
+do  
+$$  
+    declare  
+        value int;  
+    begin  
+        value = random() * (101 + 100) - 100;  
+        if value > 0 then  
+            raise notice '% is positive', value;  
+        else  
+            if value = 0 then  
+                raise notice 'zero';  
+            else  
+                raise notice '% is negative', value;  
+            end if;  
+        end if;  
+    end;  
+$$
+```
+
+>`elseif` anahtar sözcüğü yukarıdaki demo örnek aşağıdaki gibi daha az karmaşık dolayısıyla daha okunabilir biçimde yazılabililr
+
+```sql
+do  
+$$  
+    declare  
+        value int;  
+    begin  
+        value = random() * (101 + 100) - 100;  
+        if value > 0 then  
+            raise notice '% is positive', value;  
+        elseif value = 0 then  
+            raise notice 'zero';  
+        else  
+            raise notice '% is negative', value;  
+        end if;  
+    end;  
+$$
+```
+>`elseif` anahtar sözcüğü aslında daha eski olan `elsif`anahtar sözcüğü de kullanılabilir
+
+```sql
+do  
+$$  
+    declare  
+        value int;  
+    begin  
+        value = random() * (101 + 100) - 100;  
+        if value > 0 then  
+            raise notice '% is positive', value;  
+        elsif value = 0 then  
+            raise notice 'zero';  
+        else  
+            raise notice '% is negative', value;  
+        end if;  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları hazırlayınız ve ilgili soruları yanıtlayınız
+>**Tablolar:**
+>- **people**
+>	- citizen_id char(11)
+>	- first_name varchar(300)
+>	- last_name varchar(300)
+>	- age int
+>- **people_younger**
+>	- citizen_id char(11)
+>	- first_name varchar(300)
+>	- last_name varchar(300)
+>	- age int
+>- **people_older**
+>	- citizen_id char(11)
+>	- first_name varchar(300)
+>	- last_name varchar(300)
+>	- age int
+>**Sorular:**
+>1. Parametresi ile aldığı person bilgilerine göre yaşı 18 ile 65 arasında olanları `people` tablosuna, yaşı 18'den küçük olanları `people_younger` tablosuna, yaşı 65'den büyük olanlar `people_older` tablosuna ekleyen `insert_person` isimli void bir fonksiyonu yazınız.
+>2. Parametresi ile aldığı yaş bilgisine göre o yaştaki kişileri tablo olarak döndüren `get_people_by_age`fonksiyonunu yazınız
+>
+>**Not:** Bu örnek ileride doğum tarihi ile hesaplanacak şekilde yapılacaktır.
+>
+>**Çözüm:**
+>
+```sql
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    age int not null  
+);  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    age int not null  
+);  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    age int not null  
+);  
+```
+
+
+```sql
+create or replace function insert_person(char(11), varchar(300), varchar(300), int)  
+returns void  
+as  
+$$  
+    begin  
+        if $4 < 18 then  
+            insert into people_younger (citizen_id, first_name, last_name, age) values ($1, $2, $3, $4);  
+        elseif $4 < 65 then  
+            insert into people (citizen_id, first_name, last_name, age) values ($1, $2, $3, $4);  
+        else  
+            insert into people_older (citizen_id, first_name, last_name, age) values ($1, $2, $3, $4);  
+        end if;  
+    end;  
+$$ language plpgsql;  
+  
+select * from people_younger  
+
+
+```

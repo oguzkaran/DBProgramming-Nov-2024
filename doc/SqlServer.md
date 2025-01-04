@@ -652,5 +652,34 @@ select @country_id
 
 >Önceliklendirme açısından parantez zorunludur. Aksi durumda error oluşur.
 
-##### Tablo Döndüren Fonksiyonlar
+##### Tablo Döndüren Fonksiyonlar (Table-Valued Functions)
+
+>Genel olarak bir sorgunun sonucuna yani sorguya ilişkin alanlara (projection) geri dönen fonksiyonlardır. Bu fonksiyonların geri dönüş değerleri için doğrudan `returns table` yazılır. Sorgudan elde edilen projection'a ilişkin alanlara geri dönülür.
+
+```sql
+create function get_airport_and_country_name_by_departure_airport_code(@departure_airport_code nchar (10))  
+returns table  
+as  
+    return (select aa.name as arrival_airport_name, coa.name country_name
+            from  
+                flights f inner join airports ad on f.departure_airport_code = ad.code  
+                          inner join airports aa on f.arrival_airport_code = aa.code  
+                          inner join cities ca on aa.city_id = ca.city_id  
+                          inner join countries coa on coa.country_id = ca.country_id  
+            where f.departure_airport_code = @departure_airport_code)
+
+```
+
+>Burada projection'a alanlar aynı isme sahip olursa geri dönüş değeri olarak herhangi bir isimlendirme yapılmadığında alias olarak sorguda verilmelidir.
+
+```sql
+create function get_flight_info_by_flight_id(@flight_id bigint)  
+returns table  
+return (select f.flight_id, f.date_time, ad.name departure_airport, cd.name as departure_city, aa.name arrival_airport, ca.name as arrival_city  
+        from flights f inner join airports ad on f.departure_airport_code = ad.code  
+                       inner join airports aa on f.arrival_airport_code = aa.code  
+                       inner join cities cd on ad.city_id = cd.city_id  
+                       inner join cities ca on aa.city_id = ca.city_id  
+        where f.flight_id = @flight_id)
+```
 
