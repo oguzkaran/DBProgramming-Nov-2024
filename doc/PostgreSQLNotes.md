@@ -921,7 +921,7 @@ $$
 >1. Parametresi ile aldığı person bilgilerine göre yaşı 18 ile 65 arasında olanları `people` tablosuna, yaşı 18'den küçük olanları `people_younger` tablosuna, yaşı 65'den büyük olanlar `people_older` tablosuna ekleyen `insert_person` isimli void bir fonksiyonu yazınız.
 >2. Parametresi ile aldığı yaş bilgisine göre o yaştaki kişileri tablo olarak döndüren `get_people_by_age`fonksiyonunu yazınız
 >
->**Not:** Bu örnek ileride doğum tarihi ile hesaplanacak şekilde yapılacaktır.
+>**Not:** Bu örnek ileride yaş bilgisi doğum tarihi ile hesaplanacak şekilde yapılacaktır.
 >
 >**Çözüm:**
 >
@@ -963,9 +963,248 @@ $$
             insert into people_older (citizen_id, first_name, last_name, age) values ($1, $2, $3, $4);  
         end if;  
     end;  
+$$ language plpgsql;
+
+
+create or replace function get_people_by_age(int)  
+returns table (citizen_id char(11), first_name varchar(300), last_name varchar(300), age int)  
+as  
+$$  
+    begin  
+        if $1 < 18 then  
+            return query select * from people_younger p where p.age = $1;  
+        end if;  
+  
+        if $1 < 65 then  
+            return query select * from people p where p.age = $1;  
+        end if;  
+  
+        return query select * from people_older p where p.age = $1;  
+    end  
+$$ language plpgsql;
+```
+
+>Bir değişkenin değerinin null olup olmadığı **is null** veya **is not null** koşul ifadeleri ile kontrol edilebilir:
+
+```sql
+if name is null then
+	-- ...
+endif;
+
+if name is not null then
+	-- ...
+endif;
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloyu hazırlayınız ve ilgili soruları yanıtlayınız
+>employees
+>	- citizen_id char(11) p.k.
+>	- first_name varchar(250) not null
+>	- middle_name varchar(250)
+>	- last_name varchar(250) not null
+>	- marital_status int
+>**Sorular:**
+>1. Parametresi ile aldığı int türden medeni durum bilgisine göre yazı olarak `Evli, Bekar, Boşanmış veya Belirsiz` yazılarından birisine geri dönen `get_marital_status_text_tr` fonksiyonunu yazınız. Burada sıfır Evli, 1 Bekar, 2, Boşanmış ve diğer değerler de Belirsiz anlamında kullanılacaktır.
+>2. Parametresi ile aldığı 3 tane yazıyı aralarına space karakteri koyarak, ancak `null` olanları yazıya eklemeyecek şekilde toplam yazıya dönen `get_full_text` fonksiyonunu yazınız.
+>3. Parametresi ile aldığı `citizen_id` bilgisine göre ismin tamamını (full_name), marital_status_text bilgisini tablo olarak döndüren `get_employee_by_citizen_id`fonksiyonunu yazınız.
+
+
+```sql
+create table employees (  
+    citizen_id char(11) primary key,  
+    first_name varchar(250) not null,  
+    middle_name varchar(250),  
+    last_name varchar(250) not null,  
+    marital_status int  
+);  
+  
+create or replace function get_marital_status_text_tr(status int)  
+returns varchar(20)  
+as  
+$$  
+    declare  
+        status_str varchar(20);  
+    begin  
+        if status = 0 then  
+            status_str = 'Evli';  
+        elseif status = 1 then  
+            status_str = 'Bekar';  
+        elseif status = 2 then  
+            status_str = 'Boşanmış';  
+        else  
+            status_str = 'Belirsiz';  
+        end if;  
+  
+        return status_str;  
+    end;  
 $$ language plpgsql;  
   
-select * from people_younger  
-
-
+create or replace function get_full_text(varchar, varchar, varchar)  
+returns varchar  
+as  
+$$  
+    declare  
+        full_text varchar = '';  
+    begin  
+        if $1 is not null then  
+            full_text = $1;  
+        end if;  
+  
+        if $2 is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || $2;  
+        end if;  
+  
+        if $3 is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || $3;  
+        end if;  
+  
+        return full_text;  
+    end;  
+$$ language plpgsql;  
+  
+create or replace function get_employee_by_citizen_id(char)  
+returns table (full_name varchar, marital_status_text varchar)  
+as  
+$$  
+    begin  
+        return query            select get_full_text(first_name, middle_name, last_name), get_marital_status_text_tr(marital_status)  
+            from employees where citizen_id =$1;  
+    end;  
+$$ language plpgsql;  
+  
+-- Simple test codes  
+do  
+$$  
+    begin  
+        raise notice 'Status:%', get_marital_status_text_tr(0);  
+        raise notice 'Status:%', get_marital_status_text_tr(1);  
+        raise notice 'Status:%', get_marital_status_text_tr(2);  
+        raise notice 'Status:%', get_marital_status_text_tr(3);  
+        raise notice 'Status:%', get_marital_status_text_tr(4);  
+    end;  
+$$;  
+  
+  
+do  
+$$  
+    begin  
+        raise notice '(%)', get_full_text('Oğuz', null, 'Karan');  
+        raise notice '(%)', get_full_text('Ali', 'Vefa', 'Serçe');  
+    end;  
+$$;  
+  
+select * from employees;  
+  
+select * from get_employee_by_citizen_id('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id('f2a22590-a77a-4f23-8b3f-6ec665371369');
 ```
+
+>Yukarıdaki örnekte `marital_status` bilgileri ayrı tablolarda tutulduğunda fonksiyonlar aşağıdaki gibi yazılabilir. Dikkat edilirse bu yaklaşımda `get_marital_status_text_tr` fonksiyonuna ihtiyaç yoktur
+
+```sql
+create table marital_status (  
+    marital_status_id serial primary key,  
+    text varchar(20) not null  
+);  
+  
+insert into marital_status (text) values ('Married'), ('Single'), ('Divorced'), ('Unknown');  
+  
+create table marital_status_tr (  
+    marital_status_tr_id serial primary key,  
+    marital_status_id int references marital_status(marital_status_id) not null,  
+    text_tr varchar(20) not null  
+);  
+  
+insert into marital_status_tr (marital_status_id, text_tr) values (1, 'Evli'), (2, 'Bekar'), (3, 'Boşanmış'), (4, 'Belirsiz');  
+  
+create table employees (  
+    citizen_id char(40) primary key,  
+    first_name varchar(250) not null,  
+    middle_name varchar(250),  
+    last_name varchar(250) not null,  
+    marital_status int references marital_status(marital_status_id) not null  
+);  
+  
+create or replace function get_full_text(varchar, varchar, varchar)  
+returns varchar  
+as  
+$$  
+    declare  
+        full_text varchar = '';  
+    begin  
+        if $1 is not null then  
+            full_text = $1;  
+        end if;  
+  
+        if $2 is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || $2;  
+        end if;  
+  
+        if $3 is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || $3;  
+        end if;  
+  
+        return full_text;  
+    end;  
+$$ language plpgsql;  
+  
+create or replace function get_employee_by_citizen_id_tr(char)  
+returns table (full_name varchar, marital_status_text varchar)  
+as  
+$$  
+    begin  
+        return query            select get_full_text(e.first_name, e.middle_name, e.last_name), mst.text_tr  
+            from employees e inner join marital_status ms on ms.marital_status_id = e.marital_status  
+            inner join marital_status_tr mst on ms.marital_status_id = mst.marital_status_id  
+            where citizen_id = $1;  
+    end;  
+$$ language plpgsql;  
+  
+  
+create or replace function get_employee_by_citizen_id_en(char)  
+    returns table (full_name varchar, marital_status_text varchar)  
+as  
+$$  
+begin  
+    return query        select get_full_text(e.first_name, e.middle_name, e.last_name), ms.text  
+        from employees e inner join marital_status ms on ms.marital_status_id = e.marital_status  
+        where citizen_id = $1;  
+end;  
+$$ language plpgsql;  
+  
+-- Simple test codes  
+  
+do  
+$$  
+    begin  
+        raise notice '(%)', get_full_text('Oğuz', null, 'Karan');  
+        raise notice '(%)', get_full_text('Ali', 'Vefa', 'Serçe');  
+    end;  
+$$;  
+  
+select * from employees;  
+  
+select * from get_employee_by_citizen_id_tr('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id_tr('815478f4-df97-4d8d-97e9-56a0084bffae');  
+  
+select * from get_employee_by_citizen_id_en('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id_en('815478f4-df97-4d8d-97e9-56a0084bffae');
+```
+
+###### case İfadesel Deyimi
+
+>
+
+
