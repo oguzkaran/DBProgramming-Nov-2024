@@ -637,10 +637,12 @@ inner join passengers p on pf.passenger_id = p.citizen_id
 >Sql Server'daki diğer string fonksiyonları konular içerisinde kullanılacaktır.
 
 >**Sınıf Çalışması:** Aşağıda açıklanan **csd_initcap** isimli fonksiyonu yazınız
-
+>
 >**Açıklamalar:**
 >- Fonksiyon parametresi ile aldığı bir yazıyı ilk karakteri büyük geri kalan karakterleri küçük olacak şekilde yapacaktır. Örneğin `bUGÜN HAVA ÇOK GÜZEL` yazısı `Bugün hava çok güzel` biçiminde elde edilecektir.
 >- Fonksiyondan elde edilen yazıda alfabetik olmayan karakterler aynen korunacaktır
+
+
 
 >Bir sorgudan elde edilen tek bir bileşen, aynı zamanda tek bir kayıt da içeriyorsa elde edilen değer bir değişkene aşağıdaki gibi verilebilir:
 
@@ -682,4 +684,150 @@ return (select f.flight_id, f.date_time, ad.name departure_airport, cd.name as d
                        inner join cities ca on aa.city_id = ca.city_id  
         where f.flight_id = @flight_id)
 ```
+
+##### if Deyimi
+
+>if deyimi hemen hemen tüm programlama dillerinde ve akış içerisinde koşula bağlı olarak akışın yönlendirilmesini sağlayan önemli bir kontrol deyimidir. if deyiminin genel biçimi şu şekildedir:
+
+```sql
+if <koşul ifadesi>
+	<deyim>
+else
+	<deyim>
+```
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+declare @origin int = -10  
+declare @bound int = 11  
+declare @val int = floor(rand() * (@bound - @origin + 1) + @origin)  
+  
+select @val  
+  
+if @val > 0  
+    select 'Positive'  
+else  
+    select 'Not positive'
+```
+
+>Aşağıdaki demo örnekte if deyiminin else kısmında bir if deyimi yazılmıştır. Bu şekilde yazılması başka ayrık kontroller de söz konusu olduğunda karmaşık olabilmektedir
+
+
+```sql
+declare @origin int = -10  
+declare @bound int = 11  
+declare @val int = floor(rand() * (@bound - @origin + 1) + @origin)  
+  
+select @val  
+  
+if @val > 0  
+    select 'Positive'  
+else  
+    if @val = 0  
+        select 'Zero'  
+    else  
+        select 'Not positive'
+```
+
+>Yukarıdaki örnek aşağıdaki gibi daha okunabilir/algılamnabilir olarak yazılabilir
+
+```sql
+declare @origin int = -10  
+declare @bound int = 11  
+declare @val int = floor(rand() * (@bound - @origin + 1) + @origin)  
+  
+select @val  
+  
+if @val > 0  
+    select 'Positive'  
+else if @val = 0  
+    select 'Zero'  
+else  
+    select 'Not positive'
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloyu hazırlayınız ve ilgili soruları yanıtlayınız
+>employees
+>	- citizen_id char(11) p.k.
+>	- first_name varchar(250) not null
+>	- middle_name varchar(250)
+>	- last_name varchar(250) not null
+>	- marital_status int
+>**Sorular:**
+>1. Parametresi ile aldığı int türden medeni durum bilgisine göre yazı olarak `Evli, Bekar, Boşanmış veya Belirsiz` yazılarından birisine geri dönen `get_marital_status_text_tr` fonksiyonunu yazınız. Burada sıfır Evli, 1 Bekar, 2, Boşanmış ve diğer değerler de Belirsiz anlamında kullanılacaktır.
+>2. Parametresi ile aldığı 3 tane yazıyı aralarına space karakteri koyarak, ancak `null` olanları yazıya eklemeyecek şekilde toplam yazıya dönen `get_full_text` fonksiyonunu yazınız.
+>3. Parametresi ile aldığı `citizen_id` bilgisine göre ismin tamamını (full_name), marital_status_text bilgisini tablo olarak döndüren `get_employee_by_citizen_id`fonksiyonunu yazınız.
+
+**Çözüm:**
+
+```sql
+create database dpn24_companydb  
+  
+use dpn24_companydb  
+  
+create table employees (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(250) not null,  
+    middle_name nvarchar(250),  
+    last_name nvarchar(250) not null,  
+    marital_status int  
+)  
+  
+create function get_marital_status_text_tr(@status int)  
+returns nvarchar(20)  
+as  begin  
+    declare @status_str nvarchar(20)  
+   if @status = 0  
+         set @status_str =  'Evli'  
+    else if @status = 1  
+        set @status_str =  'Bekar'  
+    else if @status = 2  
+        set @status_str =  N'Boşanmış'  
+    else  
+        set @status_str =  'Belirsiz'  
+  
+    return @status_str  
+end  
+  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(250))  
+returns nvarchar(max)  
+as  
+begin  
+    declare @full_text varchar = '';  
+  
+    if @first is not null  
+        set @full_text = @first;  
+  
+    if @second is not null  
+    begin        if @full_text <> ''  
+            set @full_text = @full_text + ' ';  
+        set @full_text = @full_text + @second;  
+    end  
+  
+    if @third is not null  
+    begin        if @full_text <> ''  
+            set @full_text = @full_text + ' ';  
+        set @full_text = @full_text + @third;  
+    end  
+  
+    return @full_text;  
+end  
+  create function get_employee_by_citizen_id(@citizen_id char(11))  
+returns table  
+as  
+    return (select dbo.get_full_text(first_name, middle_name, last_name) as fullname,  
+                   dbo.get_marital_status_text_tr(marital_status) as marital_status  
+                            from employees where citizen_id = @citizen_id)  
+    
+-- Simplw test codes  
+select * from employees;  
+select * from get_employee_by_citizen_id('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id('f2a22590-a77a-4f23-8b3f-6ec665371369');
+```
+
+##### case İfadesel Deyimi
+
+>**case ifadesel deyimi (case expression)** tipik olarak hem deyim hem de ifade biçiminde kullanılabilmektedir. 
+
 
