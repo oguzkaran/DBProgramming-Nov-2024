@@ -1205,6 +1205,187 @@ select * from get_employee_by_citizen_id_en('815478f4-df97-4d8d-97e9-56a0084bffa
 
 ###### case İfadesel Deyimi
 
->
+>**case ifadesel deyimi (case expression)** tipik olarak hem deyim hem de ifade biçiminde kullanılabilmektedir. 
+
+>Aşağıdaki demo örneği inceleyiniz. Burada case expression, statement olarak kullanılmıştır
+
+```sql
+do $$  
+    declare  
+        origin int = -10;  
+        bound int = 11;  
+        val int = floor(random() * (bound - origin) + origin);
+    begin  
+        raise notice 'Value: %', val;  
+        case  
+            when val > 0 then raise notice '% is positive', val;  
+            when val = 0 then raise notice 'Zero';  
+            else raise notice '% is negative', val;  
+        end case;  
+    end;  
+$$
+```
+
+>case expression'ın expression olarak kullanımında when ve else kısımlarında noktalı virgül kullanımı geçersizdir. Aynı zamanda bu kullanımda `end case` bitirilmesi de geçersizdir. Tipik olarak end ile bitirilmesi gerekir.
+
+>Aşağıdaki demo örneği inceleyiniz. Burada case expression, expression olarak kullanılmıştır
+
+```sql
+do $$  
+    declare  
+        origin int = -10;  
+        bound int = 11;  
+        val int = floor(random() * (bound - origin) + origin);  
+        message varchar(100);  
+    begin  
+        raise notice 'Value: %', val;  
+        message = case  
+            when val > 0 then 'positive'  
+            when val = 0 then 'zero'  
+            else 'negative'  
+        end;  
+  
+        raise notice '%', message;  
+    end;  
+$$
+```
+
+>case expression eşitlik karşılaştırması yapacak biçiminde de kullanılabilir. 
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+do $$  
+    declare  
+        origin int = 1;  
+        bound int = 4;  
+        val int = floor(random() * (bound - origin) + origin);  
+        message varchar(100);  
+    begin  
+        raise notice 'Value: %', val;  
+        message = case val  
+                      when 1 then 'one'  
+                      when 2 then 'two'  
+                      else 'three'  
+            end;  
+  
+        raise notice '%', message;  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloyu hazırlayınız ve ilgili soruları yanıtlayınız
+>employees
+>	- citizen_id char(11) p.k.
+>	- first_name varchar(250) not null
+>	- middle_name varchar(250)
+>	- last_name varchar(250) not null
+>	- marital_status int
+>**Sorular:**
+>1. Parametresi ile aldığı int türden medeni durum bilgisine göre yazı olarak `Evli, Bekar, Boşanmış veya Belirsiz` yazılarından birisine geri dönen `get_marital_status_text_tr` fonksiyonunu yazınız. Burada sıfır Evli, 1 Bekar, 2, Boşanmış ve diğer değerler de Belirsiz anlamında kullanılacaktır.
+>2. Parametresi ile aldığı 3 tane yazıyı aralarına space karakteri koyarak, ancak `null` olanları yazıya eklemeyecek şekilde toplam yazıya dönen `get_full_text` fonksiyonunu yazınız.
+>3. Parametresi ile aldığı `citizen_id` bilgisine göre ismin tamamını (full_name), marital_status_text bilgisini tablo olarak döndüren `get_employee_by_citizen_id`fonksiyonunu yazınız.
+
+```sql
+create table employees (  
+                           citizen_id char(11) primary key,  
+                           first_name varchar(250) not null,  
+                           middle_name varchar(250),  
+                           last_name varchar(250) not null,  
+                           marital_status int  
+);  
+  
+create or replace function get_marital_status_text_tr(status int)  
+    returns varchar(20)  
+as  
+$$  
+begin  
+    return case status  
+        when 0 then'Evli'  
+        when 1 then 'Bekar'  
+        when 2 then 'Boşanmış'  
+        else 'Belirsiz'  
+        end;  
+end;  
+$$ language plpgsql;  
+  
+create or replace function get_full_text(varchar, varchar, varchar)  
+    returns varchar  
+as  
+$$  
+declare  
+    full_text varchar = '';  
+begin  
+    if $1 is not null then  
+        full_text = $1;  
+    end if;  
+  
+    if $2 is not null then  
+        if full_text <> '' then  
+            full_text = full_text || ' ';  
+        end if;  
+        full_text = full_text || $2;  
+    end if;  
+  
+    if $3 is not null then  
+        if full_text <> '' then  
+            full_text = full_text || ' ';  
+        end if;  
+        full_text = full_text || $3;  
+    end if;  
+  
+    return full_text;  
+end;  
+$$ language plpgsql;  
+  
+create or replace function get_employee_by_citizen_id(char)  
+    returns table (full_name varchar, marital_status_text varchar)  
+as  
+$$  
+begin  
+    return query select get_full_text(first_name, middle_name, last_name), get_marital_status_text_tr(marital_status)  
+                 from employees where citizen_id =$1;  
+end;  
+$$ language plpgsql;  
+  
+-- Simple test codes  do  
+$$  
+    begin  
+        raise notice 'Status:%', get_marital_status_text_tr(0);  
+        raise notice 'Status:%', get_marital_status_text_tr(1);  
+        raise notice 'Status:%', get_marital_status_text_tr(2);  
+        raise notice 'Status:%', get_marital_status_text_tr(3);  
+        raise notice 'Status:%', get_marital_status_text_tr(4);  
+    end;  
+$$;  
+  
+  
+do  
+$$  
+    begin  
+        raise notice '(%)', get_full_text('Oğuz', null, 'Karan');  
+        raise notice '(%)', get_full_text('Ali', 'Vefa', 'Serçe');  
+    end;  
+$$;  
+  
+select * from employees;  
+  
+select * from get_employee_by_citizen_id('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id('f2a22590-a77a-4f23-8b3f-6ec665371369');
+```
+
+>Aşağıdaki demo örnekte case expression sorgu içerisinde kullanılmıştır
+
+```sql
+select get_full_text(first_name, middle_name, last_name),  
+    case marital_status  
+       when 0 then'Evli'  
+       when 1 then 'Bekar'  
+       when 2 then 'Boşanmış'  
+       else 'Belirsiz'  
+    end as marital_status  
+    from employees where citizen_id ='f048425c-58e5-4694-94ec-7ae8dc4fbeae';
+```
+
 
 
