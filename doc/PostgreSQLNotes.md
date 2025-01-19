@@ -1264,10 +1264,10 @@ do $$
     begin  
         raise notice 'Value: %', val;  
         message = case val  
-                      when 1 then 'one'  
-                      when 2 then 'two'  
-                      else 'three'  
-            end;  
+			  when 1 then 'one'  
+			  when 2 then 'two'  
+			  else 'three'  
+        end;  
   
         raise notice '%', message;  
     end;  
@@ -1288,11 +1288,11 @@ $$
 
 ```sql
 create table employees (  
-                           citizen_id char(11) primary key,  
-                           first_name varchar(250) not null,  
-                           middle_name varchar(250),  
-                           last_name varchar(250) not null,  
-                           marital_status int  
+	citizen_id char(11) primary key,  
+	first_name varchar(250) not null,  
+	middle_name varchar(250),  
+	last_name varchar(250) not null,  
+	marital_status int  
 );  
   
 create or replace function get_marital_status_text_tr(status int)  
@@ -1385,6 +1385,81 @@ select get_full_text(first_name, middle_name, last_name),
        else 'Belirsiz'  
     end as marital_status  
     from employees where citizen_id ='f048425c-58e5-4694-94ec-7ae8dc4fbeae';
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları yaratınız ve ilgili soruları yanıtlayınız
+>**Tablolar:**
+>- court_status
+>	- court_status_id
+>	- description (Available, Not Available, Reserved)
+>- court_types
+>	- court_type_id
+>	- description (Open, Closed, OpenOrClosed)
+>- courts
+>	- court_id
+>	- name
+>	- court_type_id
+>	- court_status_id
+>**Sorular:**
+>1. Tüm kortların bilgilerini detaylı olarak döndüren `get_court_details` fonksiyonunu yazınız
+>2. Tüm kortların bilgilerine ilişkin court_type ve court_status alanlarını Türkçe olarak döndüren `get_court_details_tr` fonksiyonunu yazınız
+>**Çözüm:**
+
+```sql
+create table court_status (  
+    court_status_id serial primary key,  
+    description varchar(50) not null  
+);  
+  
+insert into court_status (description) values ('Available'), ('Not Available'), ('Reserved');  
+  
+create table court_types (  
+    court_type_id serial primary key,  
+    description varchar(50) not null  
+);  
+  
+insert into court_types (description) values ('Open'), ('Closed'), ('Open or Closed');  
+  
+create table courts (  
+    court_id serial primary key,  
+    name varchar(250) not null,  
+    court_status_id int references court_status(court_status_id),  
+    court_type_id int references court_types(court_type_id)  
+);  
+  
+create or replace function get_court_details()  
+    returns table (court_name varchar, court_status varchar, court_type varchar)  
+as $$  
+begin  
+    return query select c.name court_name, cs.description court_status, ct.description court_type  
+            from  
+                court_status cs inner join courts c on cs.court_status_id = c.court_status_id  
+                                inner join court_types ct on c.court_type_id = ct.court_type_id;  
+end  
+$$ language plpgsql;  
+  
+create or replace function get_court_details_tr()  
+    returns table (court_name varchar, court_status varchar, court_type varchar)  
+as $$  
+    begin  
+    return query select c.name,  
+                   case c.court_status_id  
+                       when 1 then cast ('Uygun' as varchar)  
+                       when 2 then cast ('Uygun değil' as varchar)  
+                       else cast('Rezerve' as varchar)  
+                       end,  
+                   case c.court_type_id  
+                       when 1 then cast ('Açık' as varchar)  
+                       when 2 then cast ('Kapalı' as varchar)  
+                       else cast ('Açık veya Kapalı' as varchar)  
+                       end  
+            from  courts c;  
+    end  
+$$ language plpgsql;  
+  
+-- Simple test codes  
+select * from get_court_details();  
+select * from get_court_details_tr();
 ```
 
 

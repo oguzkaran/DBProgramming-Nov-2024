@@ -830,4 +830,278 @@ select * from get_employee_by_citizen_id('f2a22590-a77a-4f23-8b3f-6ec665371369')
 
 >**case ifadesel deyimi (case expression)** tipik olarak hem deyim hem de ifade biçiminde kullanılabilmektedir. 
 
+```sql
+declare @origin int = -10  
+declare @bound int = 11  
+declare @val int = floor(rand() * (@bound - @origin + 1) + @origin)  
+declare @message nvarchar(100)  
+select @val  
+  
+set @message = case  
+        when @val > 0 then 'Positive'  
+        when @val = 0 then 'Zero'  
+        else 'Negative'  
+    end  
+  
+select @message
+```
 
+>case expression eşitlik karşılaştırmasında da kullanılabilir
+
+```sql
+declare @origin int = -10  
+declare @bound int = 11  
+declare @val int = floor(rand() * (@bound - @origin + 1) + @origin)  
+declare @message nvarchar(100)  
+select @val  
+  
+set @message = case @val % 2  
+        when 0 then 'Even'  
+        else 'Odd'  
+    end  
+  
+select @message
+```
+
+
+>**Sınıf Çalışması:** Aşağıdaki tabloyu hazırlayınız ve ilgili soruları yanıtlayınız
+>employees
+>	- citizen_id char(11) p.k.
+>	- first_name varchar(250) not null
+>	- middle_name varchar(250)
+>	- last_name varchar(250) not null
+>	- marital_status int
+>**Sorular:**
+>1. Parametresi ile aldığı int türden medeni durum bilgisine göre yazı olarak `Evli, Bekar, Boşanmış veya Belirsiz` yazılarından birisine geri dönen `get_marital_status_text_tr` fonksiyonunu yazınız. Burada sıfır Evli, 1 Bekar, 2, Boşanmış ve diğer değerler de Belirsiz anlamında kullanılacaktır.
+>2. Parametresi ile aldığı 3 tane yazıyı aralarına space karakteri koyarak, ancak `null` olanları yazıya eklemeyecek şekilde toplam yazıya dönen `get_full_text` fonksiyonunu yazınız.
+>3. Parametresi ile aldığı `citizen_id` bilgisine göre ismin tamamını (full_name), marital_status_text bilgisini tablo olarak döndüren `get_employee_by_citizen_id`fonksiyonunu yazınız.
+
+**Çözüm:**
+
+```sql
+create database dpn24_companydb  
+  
+use dpn24_companydb  
+  
+create table employees (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(250) not null,  
+    middle_name nvarchar(250),  
+    last_name nvarchar(250) not null,  
+    marital_status int  
+)  
+  
+create function get_marital_status_text_tr(@status int)  
+    returns nvarchar(20)  
+as  
+begin  
+    return case @status  
+               when 0 then 'Evli'  
+               when 1 then 'Bekar'  
+               when 2 then N'Boşanmış'  
+               else 'Belirsiz'  
+        end  
+end  
+  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(250))  
+    returns nvarchar(max)  
+as  
+begin  
+    declare @full_text varchar = '';  
+  
+    if @first is not null  
+        set @full_text = @first;  
+  
+    if @second is not null  
+        begin        if @full_text <> ''  
+            set @full_text = @full_text + ' ';  
+        set @full_text = @full_text + @second;  
+        end  
+  
+    if @third is not null  
+        begin        if @full_text <> ''  
+            set @full_text = @full_text + ' ';  
+        set @full_text = @full_text + @third;  
+        end  
+  
+    return @full_text;  
+end  
+  
+create function get_employee_by_citizen_id(@citizen_id char(11))  
+    returns table  
+        as        return (select dbo.get_full_text(first_name, middle_name, last_name) as fullname,  
+                       dbo.get_marital_status_text_tr(marital_status) as marital_status  
+                from employees where citizen_id = @citizen_id)  
+  
+-- Simplw test codes  
+select * from employees;  
+select * from get_employee_by_citizen_id('f048425c-58e5-4694-94ec-7ae8dc4fbeae');  
+select * from get_employee_by_citizen_id('f2a22590-a77a-4f23-8b3f-6ec665371369');
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları yaratınız ve ilgili soruları yanıtlayınız
+>**Tablolar:**
+>- court_status
+>	- court_status_id
+>	- description (Available, Not Available, Reserved)
+>- court_types
+>	- court_type_id
+>	- description (Open, Closed, OpenOrClosed)
+>- courts
+>	- court_id
+>	- name
+>	- court_type_id
+>	- court_status_id
+>**Sorular:**
+>1. Tüm kortların bilgilerini detaylı olarak döndüren `get_court_details` fonksiyonunu yazınız
+>2. Tüm kortların bilgilerine ilişkin court_type ve court_status alanlarını Türkçe olarak döndüren `get_court_details_tr` fonksiyonunu yazınız
+>**Çözüm:**
+
+```sql
+create database dpn24_tennisclubdb  
+  
+use dpn24_tennisclubdb  
+  
+create table court_status (  
+    court_status_id int primary key identity(1, 1),  
+    description nvarchar(50) not null  
+)  
+  
+insert into court_status (description) values ('Available'), ('Not Available'), ('Reserved')  
+  
+create table court_types (  
+    court_type_id int primary key identity(1, 1),  
+    description nvarchar(50) not null  
+)  
+  
+insert into court_types (description) values ('Open'), ('Closed'), ('Open or Closed')  
+  
+create table courts (  
+    court_id int primary key identity(1, 1),  
+    name nvarchar(250) not null,  
+    court_status_id int foreign key references court_status(court_status_id),  
+    court_type_id int foreign key references court_types(court_type_id)  
+)
+  
+create function get_court_details()  
+returns table  
+as  
+return (select c.name court_name, cs.description court_status, ct.description court_type  
+        from  
+        court_status cs inner join courts c on cs.court_status_id = c.court_status_id  
+        inner join court_types ct on c.court_type_id = ct.court_type_id)  
+  
+  
+create function get_court_details_tr()  
+returns table  
+as  
+return (select c.name court_name,  
+                case c.court_status_id  
+                    when 1 then 'Uygun'  
+                    when 2 then N'Uygun değil'  
+                    else 'Rezerve'  
+                end court_status,  
+                case c.court_type_id  
+                   when 1 then N'Açık'  
+                   when 2 then N'Kapalı'  
+                   else N'Açık veya Kapalı'  
+                 end court_type  
+        from  
+        courts c)  
+  
+  
+-- Simple test codes  
+select * from get_court_details()  
+select * from get_court_details_tr()
+```
+
+##### Tarih-Zaman Fonksiyonları
+
+>Tarih-zaman işlemleri neredeyse her uygulamada kullanılmaktadır. SqlServer'da tarih, zaman ve tarih-zaman türleri birbirinden ayrıdır. Bunlar sırasıyla **date, time** ve **datetime** biçimindedir. Ayrıca **datetime2, smalldatetime, datetimeoffset** türleri de bulunmaktadır.
+
+###### getdate, sysdatetime, getutcdate ve sysutcdatetime Fonksiyonları
+
+>`getdate ve sysdatetime` fonksiyonları o an çalışılan sistemin tarih-zaman bilgisini elde etmek için kullanılırlar. `sysdatetime` datetime2 türünden değer döndürdüğü için nanosaniyeler mertebesinde `getdate` fonksiyonuna göre daha hassastır.  `getutcdate ve sysutcdatetime` fonksiyonları o an çalışılan sistemin tarih-zaman bilgisini `UTC (Universal Time Clock)` olarak verirler. `sysutcdatetime` datetime2 türünden değer döndürdüğü için nanosaniyeler mertebesinde `getutcdate` fonksiyonuna göre daha hassastır. 
+
+```sql
+select getdate(), sysdatetime(), getutcdate(), sysutcdatetime()
+```
+
+>Bu fonksiyonlar çeşitli domain'lerde ilgili tarih-zaman alan bilgilerinin default değerleri için de kullanılabilir.
+
+```sql
+create table airports (  
+    code char(10) primary key,  
+    city_id int foreign key references cities(city_id) not null,  
+    name nvarchar(300) not null,  
+    open_date date default(getdate()) not null  
+    -- ...  
+);  
+```
+
+###### datepart Fonksiyonu
+
+>Bu fonksiyon ile bir tarih, zaman ya da tarih-zamana ilişkin bileşenler elde edilebilir. Burada `weekday`, `1 Pazar, 2 Pazartesi, ..., 3 Cumartesi` olacak şekildedir.
+>
+```sql
+declare @now datetime = getdate()  
+  
+select datepart(day, @now), datepart(month, @now), datepart(year, @now),  
+       datepart(hour, @now), datepart(minute, @now), datepart(second, @now),  
+       datepart(dayofyear, @now),datepart(weekday, @now)
+```
+
+###### datediff Fonksiyonu
+
+>Bu fonksiyon iki tarih-zaman arasındaki farkı istenilen birimde döndürür. Birimler tamsayı biçimindedir. 
+
+
+```sql
+declare @big_earthquake datetime = '2023-02-06 04:00:00'  
+declare @now datetime = sysdatetime()  
+declare @years real  
+  
+set @years = datediff(day, @big_earthquake, @now) / 365.0  
+  
+select @years
+```
+
+###### datefromparts ve datetimefromparts Fonksiyonları
+
+>Bu fonksiyon ile tarih-zamana ilişlkin bileşenlerden tarih-zaman bilgisi oluşuturulur
+
+```sql
+declare @birth_date date = datefromparts(1976, 9, 10)  
+  
+select datediff(day, @birth_date, getdate()) / 365.0
+```
+
+```sql
+declare @birth_date date = datetimefromparts(1976, 9, 10, 14, 0, 0, 0)  
+  
+select datediff(day, @birth_date, getdate()) / 365.0
+```
+
+###### eomonth Fonksiyonu
+
+>Bu fonksiyon ilgili tarihe ilişkin ayın son gününün tarih bilgisine geri döner
+
+```sql
+select eomonth(getdate()), eomonth(datefromparts(2024, 2, 1)), eomonth(datefromparts(2025, 2, 1))
+```
+
+
+>**Sınıf Çalışması:** Aşağıdaki tabloya göre ilgili soruları yanıtlayınız
+>- students
+>	- citizen_id char(40)
+>	- first_name
+>	- middle_name
+>	- last_name
+>	- birth_date
+>	- register_date default(getdate())
+>- **Sorular:**
+>1. Parametresi ile aldığı doğum tarihi bilgisine göre aşağıdaki mesajşardan birini döndüren `get_birth_date_message_tr` fonksiyonunu yazınız
+>	- Doğum günü geçmişse **Geçmiş doğum gününüz kutlu olsun. Yeni yaşınız: 49**
+>	- Doğum günü gelmemişse **Doğum gününüz şimdiden kutlu olsun. Yeni yaşınız: 49**
+>	- Doğum günü fonksiyonun çağrıldığı günü **Doğum gününüz kutlu olsun. Yeni yaşınız: 49**
+>2. Parametresi ile aldığı ay ve yıl bilgisine göre o ay ve o yıl içerisinde kayıt olmuş olan öğrencileri tablo olarak döndüren `get_students_by_register_month_and_year` fonksiyonunu yazınız.
