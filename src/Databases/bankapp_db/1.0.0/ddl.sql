@@ -55,7 +55,6 @@ create table card_types (
 
 insert into card_types (description) values ('Visa'), ('Master'), ('Amex'); 
 
-
 create table cards (
 	card_number char(16) primary key,
 	card_type_id int foreign key references card_types(card_type_id) not null,
