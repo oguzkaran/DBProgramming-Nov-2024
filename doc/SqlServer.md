@@ -1049,6 +1049,15 @@ declare @now datetime = getdate()
 select datepart(day, @now), datepart(month, @now), datepart(year, @now),  
        datepart(hour, @now), datepart(minute, @now), datepart(second, @now),  
        datepart(dayofyear, @now),datepart(weekday, @now)
+   
+```
+
+Ayrıca tarih zamana ilişkin bazı parçaları daha kolay elde etmek için bazı fonksiyonlar vardır. Örneğin `month` ve `year`fonksiyonları ilgili tarih zamana ilişkin ay ve yıl bilgisini elde etmek için kullanılabilir:
+
+```sql
+declare @now datetime = getdate()  
+  
+select month(@now), year(@now), datepart(month, @now), datepart(year, @now)
 ```
 
 ###### datediff Fonksiyonu
@@ -1100,8 +1109,81 @@ select eomonth(getdate()), eomonth(datefromparts(2024, 2, 1)), eomonth(datefromp
 >	- birth_date
 >	- register_date default(getdate())
 >- **Sorular:**
->1. Parametresi ile aldığı doğum tarihi bilgisine göre aşağıdaki mesajşardan birini döndüren `get_birth_date_message_tr` fonksiyonunu yazınız
+>1. Parametresi ile aldığı doğum tarihi bilgisine göre aşağıdaki mesajardan birini döndüren `get_birth_date_message_tr` fonksiyonunu yazınız
 >	- Doğum günü geçmişse **Geçmiş doğum gününüz kutlu olsun. Yeni yaşınız: 49**
 >	- Doğum günü gelmemişse **Doğum gününüz şimdiden kutlu olsun. Yeni yaşınız: 49**
 >	- Doğum günü fonksiyonun çağrıldığı günü **Doğum gününüz kutlu olsun. Yeni yaşınız: 49**
 >2. Parametresi ile aldığı ay ve yıl bilgisine göre o ay ve o yıl içerisinde kayıt olmuş olan öğrencileri tablo olarak döndüren `get_students_by_register_month_and_year` fonksiyonunu yazınız.
+>**Çözüm:**
+
+```sql
+  
+create table students (  
+    citizen_id    char(40) primary key,  
+    first_name    nvarchar(100) not null,  
+    middle_name   nvarchar(100),  
+    last_name     nvarchar(100) not null,  
+    birth_date    date          not null,  
+    register_date date default (getdate())  
+)  
+  
+drop function get_birth_date_message_tr  
+  
+create function get_birth_date_message_tr(@birth_date date)  
+returns nvarchar(256)  
+as  
+begin  
+    declare @today date = getdate()  
+    declare @birth_day date = datefromparts(datepart(year, @today), datepart(month, @birth_date), datepart(day, @birth_date))  
+    declare @age real = datediff(day, @birth_date, @today) / 365.0  
+    declare @message nvarchar(256)  
+  
+    set @message = case  
+        when @today > @birth_day then N'Geçmiş doğum gününüz kutlu olsun.'  
+        when @today < @birth_day then N'Doğum gününüz şimdiden kutlu olsun.'  
+        else N'Doğum gününüz kutlu olsun.'  
+    end  
+  
+    return @message + cast (@age as nvarchar(10))  
+end  
+  
+  
+create function get_students_by_register_month_and_year(@month int, @year int)  
+returns table  
+as  
+return (  
+    select * from students where datepart(month, register_date) = @month and datepart(year, register_date) = @year  
+)
+```
+
+>**Sınıf Çalışması:** dpn24_bankappdb veritabanının 1.0.0 versiyonu için aşağıdaki soruları yanıtlayınız
+>- Parametresi ile aldığı müşteri numarasına göre müşterinin aşağıdaki bilgilerini tablo olarak döndüren 
+    `get_customer_by_number` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde
+        - Kartın son kullanma tarihinin geçip geçmediği, geçmişse "Son kullanma tarihi geçmiş" geçmemişse "Son kullanma tarihi geçmemiş"
+>
+>- Parametresi ile aldığı kart tür id'sine göre yurt dışında yaşayan müşterilere ilişkin aşağıdaki bilgileri tablo biçiminde döndüren `get_non_local_customers_by_card_type_id` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde
+        - Kartın son kullanma tarihinin geçip geçmediği, geçmişse "Son kullanma tarihi geçmiş" geçmemişse 
+        "Son kullanma tarihi geçmemiş"
+
+>- Parametresi ile aldığı kart tür id'sine göre yurt içinde yaşayan kart süreleri dolmuş müşterileri tablo biçiminde döndüren `get_local_customers_by_card_type_id` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde            
