@@ -1156,6 +1156,8 @@ return (
 )
 ```
 
+SSSSSSSSSSSSSSSSSSSSSSSSS
+
 >**Sınıf Çalışması:** dpn24_bankappdb veritabanının 1.0.0 versiyonu için aşağıdaki soruları yanıtlayınız
 >- Parametresi ile aldığı müşteri numarasına göre müşterinin aşağıdaki bilgilerini tablo olarak döndüren 
     `get_customer_by_number` fonksiyonunu yazınız
@@ -1187,3 +1189,112 @@ return (
         - Kartın son kullanma tarihi
         - Kart türünün yazısal karşılığı
         - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde            
+
+
+##### Stored Procedures
+
+>Anımsanacağı gibi Sql Server'da fonksiyonlar içersinde yan-etkiye (side effect) sahip yani değiştirme eğiliminde olan işlemler yapılamaz. Örneğin insert, delete ve update cümleleri fonksiyonlar içerisinde kullanılamaz. Yine örneğin `rand` gibi global bazı değişkenlerin değerlerini değiştiren fonksiyonlar da yine bir fonksiyon içerisinde çağrılamazlar. Böylesi işlemler için ismine **stored procedure (SP)** denilen alt programlar kullanılır. SP'ler yapı olarak fonksiyonlara benzese de kendine has özellikleri bulunan alt programlardır. Bu özellikler konu içerisinde ele alınacaktır. 
+>
+>Bir SP **create procedure** cümlesi ile yaratılır. SP'nin geri dönüş değeri kavramı yoktur. Sql Server'da bir convention olarak SP isimleri `sp_` ile başlatılır. Sql Server'da hazır olarak (built-in) bulunan SP'ler için bu convention'a uyulmuştur. Bir SP **exec** veya **execute** cümlelerinden biri ile çalıştırılır. exec yapıldığında argümanlar parametre değişken isimleri ile verilebilirler. Bu şekilde argüman geçilmesine **isimli argümanlar (named arguments)** da denilmektedir. İsimli argüman kullanılacaksa tüm argümanlar isimli olarak verilmelidir. İsimli argüman kullanımında argümanların sırasının önemi yoktur. İsimli argüman verilmeyecekse bu durumda argüman sırası şüphesiz önemlidir. 
+
+
+>Aşağıdaki tabloları ve SP'leri inceleyiniz
+
+```sql
+create database dpn24_shoppingdb  
+  
+use dpn24_shoppingdb  
+  
+create table clients (  
+    username nvarchar(100) primary key,  
+    email nvarchar(300) unique not null,  
+    first_name nvarchar(100) not null,  
+    middle_name nvarchar(100),  
+    last_name nvarchar(100) not null,  
+    birth_date date not null,  
+    register_date date default(getdate()) not null  
+)  
+  
+create table client_logins (  
+    client_login_id bigint primary key identity(1, 1),  
+    username nvarchar(100) foreign key references clients(username) not null,  
+    date_time datetime default(getdate()) not null,  
+    success bit not null  
+)  
+  
+create procedure sp_insert_client(@username nvarchar(100), @email nvarchar(300), @first_name nvarchar(100), @middle_name nvarchar(100), @last_name nvarchar(100), @birth_date date)  
+as  
+begin  
+    insert into clients (username, email, first_name, middle_name, last_name, birth_date) values (@username, @email, @first_name, @middle_name, @last_name, @birth_date)  
+end  
+  
+exec sp_insert_client 'oguzkaran', 'oguzkaran@csystem.org', N'Oğuz', null, 'Karan', '1976-09-10'  
+  
+execute sp_insert_client @birth_date ='1989-07-29', @email = 'yasar@gulec.com', @first_name = N'Yaşar', @middle_name = N'Uğur', @last_name = N'Güleç', @username = 'yasar'
+```
+
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları hazırlayınız ve ilgili soruları yanıtlayınız
+>**Tablolar:**
+>- **people**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_younger**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_older**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>**Sorular:**
+>1. Parametresi ile aldığı person bilgilerine göre yaşı 18 ile 65 arasında olanları `people` tablosuna, yaşı 18'den küçük olanları `people_younger` tablosuna, yaşı 65'den büyük olanlar `people_older` tablosuna ekleyen `sp_insert_person` isimli SP'yi yazınız
+>2. Parametresi ile aldığı yaş bilgisine göre o yaştaki kişileri tablo olarak döndüren `get_people_by_age`fonksiyonunu yazınız
+
+>**Çözüm:**
+
+```sql
+use testdb;  
+  
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create procedure sp_insert_person(@citizen_id char(11), @first_name nvarchar(300), @last_name nvarchar(300), @birth_date date)  
+as  
+begin  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.0  
+  
+    if @age < 18  
+        insert into people_younger values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else if @age < 65  
+        insert into people values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else  
+        insert into people_older values(@citizen_id, @first_name, @last_name, @birth_date)  
+ end
+
+
+```
