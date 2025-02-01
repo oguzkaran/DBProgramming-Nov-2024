@@ -1381,10 +1381,53 @@ select (max(datediff(day, birth_date, getdate()) / 365.0) + min(datediff(day, bi
 ```
 
 
->**Sınıf Çalışması:** `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonunda diploma_no'su bir veteriner için ödenen en yüksek ücretlerin ortalamasını döndüren `get_prices_avg_by_diploma_no` fonksiyonunu yazınız
+>**Sınıf Çalışması:** `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonunda diploma_no'su bir veteriner için ödenen ücretlerin ortalamasını döndüren `get_prices_avg_by_diploma_no` fonksiyonunu yazınız
 
 **Çözüm:**
 ```sql
-
+create function get_prices_avg_by_diploma_no(@diploma_no bigint)  
+returns real  
+as  
+begin  
+    declare @avg real = (select avg(vtap.price) from  
+                        veterinarian_to_animals vta inner join veterinarian_to_animal_prices vtap on vta.veterinarian_to_animal_id = vtap.veterinarian_to_animal_id  
+                        where vta.diploma_no = @diploma_no)  
+    return @avg  
+end
 ```
 
+##### @@identity Değişkeni
+
+>Sql Server'da bir grup built-in global düzeyde erişilebilen değişken bulunmaktadır. Bu değişkenlerin isimleri genel olarak `@@` ile başlatılır. **@@identity** değişkeni kullanıldığı noktada en son otomatik olarak üretilen değeri verir. Şüphesiz en son üretilen değer ile bu değişkenin kullanıldığı arada başka bir değerin üretilmesinin araya girmemesi için bu işlemin atomik olarak yani kesilmeden yapılması gerekir. Bunun `transaction safe` bir akış oluşturulmalıdır. Transaction kavramı transaction safe akış oluşturulması ileride ele alınacaktır. 
+
+```sql
+create table sensors (  
+    sensor_id int primary key identity(1, 1),  
+    name nvarchar(250) not null,  
+    host nvarchar(100) not null,  
+)  
+  
+create table ports (  
+    port_id bigint primary key identity(1, 1),  
+    sensor_id int foreign key references sensors(sensor_id) not null,  
+    number int check(0 < number and number < 65536) not null  
+)  
+  
+create procedure sp_insert_sensor_with_port(@name nvarchar(250), @host nvarchar(100), @port int)  
+as  
+begin  
+    -- İleride transaction safe yapılacak  
+    insert into sensors (name, host) values (@name, @host)  
+  
+    declare @sensor_id int = @@identity  
+  
+    insert into ports (sensor_id, number) values (@sensor_id, @port)  
+end  
+  
+exec sp_insert_sensor_with_port 'rain', 'csystem.org/sensors/rain', 4500
+```
+
+
+##### group by Clause ve having Operatörü
+
+>
