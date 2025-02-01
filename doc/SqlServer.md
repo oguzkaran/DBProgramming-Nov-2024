@@ -1147,7 +1147,7 @@ begin
     return @message + cast (@age as nvarchar(10))  
 end  
   
-  
+
 create function get_students_by_register_month_and_year(@month int, @year int)  
 returns table  
 as  
@@ -1155,8 +1155,6 @@ return (
     select * from students where datepart(month, register_date) = @month and datepart(year, register_date) = @year  
 )
 ```
-
-SSSSSSSSSSSSSSSSSSSSSSSSS
 
 >**Sınıf Çalışması:** dpn24_bankappdb veritabanının 1.0.0 versiyonu için aşağıdaki soruları yanıtlayınız
 >- Parametresi ile aldığı müşteri numarasına göre müşterinin aşağıdaki bilgilerini tablo olarak döndüren 
@@ -1189,7 +1187,6 @@ SSSSSSSSSSSSSSSSSSSSSSSSS
         - Kartın son kullanma tarihi
         - Kart türünün yazısal karşılığı
         - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde            
-
 
 ##### Stored Procedures
 
@@ -1252,8 +1249,7 @@ execute sp_insert_client @birth_date ='1989-07-29', @email = 'yasar@gulec.com', 
 >	- last_name nvarchar(300)
 >	- birth_date date
 >**Sorular:**
->1. Parametresi ile aldığı person bilgilerine göre yaşı 18 ile 65 arasında olanları `people` tablosuna, yaşı 18'den küçük olanları `people_younger` tablosuna, yaşı 65'den büyük olanlar `people_older` tablosuna ekleyen `sp_insert_person` isimli SP'yi yazınız
->2. Parametresi ile aldığı yaş bilgisine göre o yaştaki kişileri tablo olarak döndüren `get_people_by_age`fonksiyonunu yazınız
+>- Parametresi ile aldığı person bilgilerine göre yaşı 18 ile 65 arasında olanları `people` tablosuna, yaşı 18'den küçük olanları `people_younger` tablosuna, yaşı 65'den büyük olanlar `people_older` tablosuna ekleyen `sp_insert_person` isimli SP'yi yazınız.
 
 >**Çözüm:**
 
@@ -1295,6 +1291,100 @@ begin
     else  
         insert into people_older values(@citizen_id, @first_name, @last_name, @birth_date)  
  end
+```
 
+
+##### Aggregate Fonksiyonlar
+
+>Bu fonksiyonlar sorgu içerisindeki bilgilere göre kümülatif biçimde işlem yaparak sonuç elde etmek için kullanılırlar. Bu fonksiyonlar özellikle gruplamada da çok sık kullanılmaktadır. Gruplama işlemi ve `group by` operatörü ileride ele alınacaktır.
+
+>Aşağıdaki aggregate fonksiyonlar `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonu ile örneklenmiştir.
+
+###### avg Fonksiyonu 
+
+>Bu fonksiyon parametresi ile aldığı alana ilişkin değerlerin ortalamasını hesaplar
+
+>Aşağıdaki örnekte hayvanların yaşlarının ortalamasını hesaplayan bir fonksiyon yazılmıştır
+>
+```sql
+create function get_age_average(@reference_date date)  
+returns real  
+as  
+begin  
+    declare @average real = (select avg(datediff(day, birth_date, @reference_date) / 365.0)  from animals)  
+  
+    return @average  
+end
+```
+
+###### sum Fonksiyonu
+>Bu fonksiyon parametresi ile aldığı alana ilişkin değerlerin ı hesaplar.
+
+>Aşağıdaki örnekte hayvanların yaşları toplamını hesaplayan bir fonksiyon yazılmıştır
+```sql
+create function get_age_sum(@reference_date date)  
+returns real  
+as  
+begin  
+    declare @sum real = (select sum(datediff(day, birth_date, @reference_date) / 365.0)  from animals)  
+  
+    return @sum  
+end
+```
+
+##### count Fonksiyonu
+
+>Bu fonksiyon ile sorgunun kayıt (record) sayısı elde edilebilir. Tipik olarak bu fonksiyon argüman olarak `*`değerini alır. 
+
+>Aşağıdaki örnekte hayvanların sayısını hesaplayan sorgu yazılmıştır
+
+```sql
+select count(*) from animals;
+```
+
+>Aşağıdaki örnekte veterine gelen ve tedavi diploma_no'su verilen bir veterinere gelen hasta sayını hesaplayan sorgu yazılmıştır
+
+```sql
+select count(*) from veterinarian_to_animals where diploma_no = 67;
+```
+
+###### min ve max Fonksiyonları
+
+>Bu fonksiyonlar sırasıyla aldıkları alana ilişkin en küçük ve en büyük değeri hesaplarlar
+
+>Aşağıdaki örnekte hayvanlar içerisindeki en büyük ve en küçük yaşı veren fonksiyonlar yazılmıştır
+
+```sql
+create function get_min_age(@reference_date date)  
+    returns real  
+as  
+begin  
+    declare @sum real = (select min(datediff(day, birth_date, @reference_date) / 365.0)  from animals)  
+  
+    return @sum  
+end  
+  
+create function get_max_age(@reference_date date)  
+    returns real  
+as  
+begin  
+    declare @sum real = (select max(datediff(day, birth_date, @reference_date) / 365.0)  from animals)  
+  
+    return @sum  
+end
+```
+
+>Aşağıdaki örnekte en büyük yaş ile en küçük yaşın ortalaması elde edilen sorgu yazılmıştır
+
+```sql
+select (max(datediff(day, birth_date, getdate()) / 365.0) + min(datediff(day, birth_date, getdate()) / 365.0)) / 2 from animals
+```
+
+
+>**Sınıf Çalışması:** `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonunda diploma_no'su bir veteriner için ödenen en yüksek ücretlerin ortalamasını döndüren `get_prices_avg_by_diploma_no` fonksiyonunu yazınız
+
+**Çözüm:**
+```sql
 
 ```
+
