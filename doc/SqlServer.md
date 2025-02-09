@@ -1474,8 +1474,9 @@ exec sp_insert_sensor_with_port 'rain', 'csystem.org/sensors/rain', 4500
 > 1. Parametresi ile aldığı ders kodu için öğrencilerin sayısını notlara göre gruplayarak getiren sorguya geri dönen `get_histogram_data_by_lecture_code` tablo döndüren fonksiyonunu yazınız.
 > 2. Her bir ders için öğrenci sayılarını veren sorguya geri dönen `get_all_lectures_students_count` tablo döndüren fonksiyonunu yazınız
 > 3. Kredi toplamları parametresi ile aldığı değerden büyük olan öğrencilerin bilgilerine geri dönen `get_students_by_total_credits_greater` tablo döndüren fonksiyonunu yazınız.
-> 4. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı dersleri döndüren `get_lectures_by_registered_students_count` tablo döndüren fonksiyonu yazınız.
-> 5. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı derslerin not ortalamalarını döndüren `get_lectures_grade_averages_by_registered_students_count` tablo döndüren fonksiyonu yazınız.
+> 4. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı dersleri döndüren `get_lectures_by_registered_students_count_greater` tablo döndüren fonksiyonu yazınız.
+> 5. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı derslerin ağırlıklı not ortalamalarını döndüren `get_lectures_grade_averages_by_registered_students_count_greater` tablo döndüren fonksiyonu yazınız. 
+> 	**Açıklama:** Ağırlıklı not ortalamasını hesaplarken bir ders için, dersin kredisi ile alınan nota ilişkin değer çarpılır. Ortalama bu çarpımlarını ortalaması hesaplanır
 > 6. Bir dersin açılabilmesi için belli sayıda öğrencinin olması gerektiği bir durumda açılması için gereken minimum öğrenci sayısını parametre olarak alan ve açılabilen dersleri getiren `get_open_lectures_by_minimum_count` fonksiyonunu yazınız.
 
 >**Çözümler:**
@@ -1578,12 +1579,77 @@ return (
     inner join students s on s.student_id = e.student_id  
     group by s.citizen_number, dbo.get_full_text(s.first_name, s.middle_name, s.last_name)  
     having sum(lec.credits) > @credits  
+)  
+  
+-- 4  
+create function get_lectures_by_registered_students_count_greater(@count int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, count(*) as count  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    group by lec.lecture_code, lec.name having count(*) > @count  
+)  
+  
+-- 5  
+create function get_lectures_grade_averages_by_registered_students_count_greater(@count int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, avg(lec.credits * g.value) as average  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    inner join grades g on e.grade_id = g.grade_id  
+    group by lec.lecture_code, lec.name having count(*) > @count  
+)  
+  
+-- 6  
+create function get_open_lectures_by_minimum_count(@minCount int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, lec.credits, count(*) as count  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    group by lec.lecture_code, lec.name, lec.credits having count(*) > @minCount  
 )
+
 ```
 
 
+>**Sınıf Çalışması:** Aşağıdaki tablolara göre ilgili soruları yanıtlayınız 
+>
+>**Sorular:**
+>1. Kaç tane ürün vardır?
+>2. Stokta bulunan ürünler kaç tanedir?
+>3. Stokta bulunan ürünlerin toplam sayısı?
+>4. Stokta bulunan ürünlerin toplam maliyetleri ve toplam satış fiyatları?
+>5. Stokta bulunan ürünlerin hepsi satıldığında kar-zarar durumuna ilişkin değer?
+>6. En pahalı ürün ile en ucuz ürünün satış fiyatları?
+>7. En fazla toplam fiyata sahip ürün ile en az toplam fiyata sahip ürünlerin toplam fiyatları?
+>8. Stokta bulunan ürünleri kategorilerine göre gruplayarak kar-zarar durumunu veren sorgu?
+>9. Stokta bulunan ürünleri kategorilerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
+>10. Stokta bulunan ürünleri kategorilerine göre gruplayarak kar-zarar durumunu veren sorgu
+>11. Stokta bulunan ürünleri kategorilerileri ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
+>12. Stokta bulunan ürünleri kategorilerine ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerden maksimum karları, bilinen bir değerden büyük olanların toplam fiyatlarını getiren sorgu
 
+```java
+create table product_categories (
+    product_category_id int primary key identity(1, 1),
+    description nvarchar(300) not null
+ )
 
+ insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables')
 
+ 
+ create table products (
+    code varchar(50) primary key,
+    product_category_id int foreign key references product_categories(product_category_id) not null,
+    name nvarchar(300) not null,
+    stock real not null,
+    cost money default(0.0) not null,
+    unit_price money default(0.0) not null
+ )
 
-
+```
