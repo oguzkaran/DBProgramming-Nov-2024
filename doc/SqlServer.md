@@ -1618,7 +1618,7 @@ return (
 ```
 
 
->**Sınıf Çalışması:** Aşağıdaki tablolara göre ilgili soruları yanıtlayınız 
+>**Sınıf Çalışması:** Aşağıdaki tablolara göre ilgili soruları yanıtlayınız. 
 >
 >**Sorular:**
 >1. Kaç tane ürün vardır?
@@ -1630,26 +1630,83 @@ return (
 >7. En fazla toplam fiyata sahip ürün ile en az toplam fiyata sahip ürünlerin toplam fiyatları?
 >8. Stokta bulunan ürünleri kategorilerine göre gruplayarak kar-zarar durumunu veren sorgu?
 >9. Stokta bulunan ürünleri kategorilerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
->10. Stokta bulunan ürünleri kategorilerine göre gruplayarak kar-zarar durumunu veren sorgu
->11. Stokta bulunan ürünleri kategorilerileri ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
->12. Stokta bulunan ürünleri kategorilerine ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerden maksimum karları, bilinen bir değerden büyük olanların toplam fiyatlarını getiren sorgu
+>10. Stokta bulunan ürünleri kategorilerileri ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
+>11. Stokta bulunan ürünleri kategorilerine ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerden maksimum karları, bilinen bir değerden büyük olanların toplam fiyatlarını getiren sorgu
 
-```java
-create table product_categories (
-    product_category_id int primary key identity(1, 1),
-    description nvarchar(300) not null
- )
-
- insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables')
-
- 
- create table products (
-    code varchar(50) primary key,
-    product_category_id int foreign key references product_categories(product_category_id) not null,
-    name nvarchar(300) not null,
-    stock real not null,
-    cost money default(0.0) not null,
-    unit_price money default(0.0) not null
- )
-
+```sql
+create table product_categories (  
+    product_category_id int primary key identity(1, 1),  
+    description nvarchar(300) not null  
+)  
+  
+insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables')  
+  
+create table products (  
+    code varchar(50) primary key,  
+    product_category_id int foreign key references product_categories(product_category_id) not null,  
+    name nvarchar(300) not null,  
+    stock real not null,  
+    cost money default(0.0) not null,  
+    unit_price money default(0.0) not null  
+)  
+  
+-- 1  
+select count(*) from products;  
+  
+-- 2  
+select count(*) from products where stock > 0  
+  
+-- 3  
+select sum(stock) from products where stock > 0;  
+  
+-- 4  
+select sum(stock * cost) total_cost, sum(stock * products.unit_price) from products where stock > 0  
+  
+-- 5  
+select sum(stock * (unit_price - cost)) total from products where stock > 0  
+  
+-- 6  
+select min(unit_price), max(unit_price) from products;  
+  
+-- 7  
+select min(stock * unit_price), max(stock * unit_price) from products where stock > 0  
+  
+-- 8  
+select pc.description, sum(p.stock * (p.unit_price - p.cost)) total  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description  
+  
+-- 9  
+select pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description  
+  
+-- 10  
+select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description, pc.product_category_id  
+  
+-- 11  
+create function get_maximum_total_greater(@threshold money)  
+returns table  
+as  
+return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+    from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+    where stock > 0  
+    group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) >= @threshold  
+)  
+  
+create function get_maximum_total_less(@threshold money)  
+returns table  
+as  
+return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+        from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+        where stock > 0  
+        group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) < @threshold  
+)
 ```
+
+
