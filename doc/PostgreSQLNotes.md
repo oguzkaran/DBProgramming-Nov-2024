@@ -1462,5 +1462,320 @@ select * from get_court_details();
 select * from get_court_details_tr();
 ```
 
+##### Tarih-Zaman Fonksiyonları
 
+>Tarih-zaman işlemleri neredeyse her uygulamada kullanılmaktadır. PostgreSQL'de tarih, zaman ve tarih-zaman türleri birbirinden ayrıdır. Bunlar sırasıyla **date, time** ve **timestamp** biçimindedir. Ayrıca zaman aralığı kavramı temsil eden **interval** türü de vardır.
+
+###### current_date, current_time ve current_timestamp Fonksiyonları
+
+>Bu fonksiyonlar sırasıyla PostgreSQL server uygulamasının çalıştığı sistemdeki o anki tarih, zaman ve tarih-zaman bilgilerini elde etmek için kullanılır.
+
+```sql
+do $$  
+    begin  
+       raise notice 'Current Date: %', current_date;  
+       raise notice 'Current Time: %', current_time;  
+       raise notice 'Current Datetime: %', current_timestamp;  
+    end  
+$$
+```
+
+###### date_part Fonksiyonu
+
+>Bu fonksiyon ile bir tarih, zaman ya da tarih-zamana ilişkin bileşenler elde edilebilir. Burada `dow`, `0 (sıfır) Pazar, 1 Pazartesi, ..., 6 Cumartesi` olacak şekildedir.
+
+
+```sql
+do $$  
+    declare  
+        today date = current_date;  
+    begin  
+       raise notice 'Day: %', date_part('day', today);  
+       raise notice 'Mon: %', date_part('mon', today);  
+       raise notice 'Year: %', date_part('year', today);  
+       raise notice 'Day of Week: %', date_part('dow', today);  
+       raise notice 'Day of Year: %', date_part('doy', today);  
+       raise notice 'Century: %', date_part('century', today);  
+       raise notice 'Decade: %', date_part('decade', today);  
+    end  
+$$
+```
+
+```sql
+do $$  
+    declare  
+        today timestamp = current_timestamp;  
+    begin  
+       raise notice 'Day: %', date_part('day', today);  
+       raise notice 'Mon: %', date_part('mon', today);  
+       raise notice 'Year: %', date_part('year', today);  
+       raise notice 'Hour: %', date_part('hour', today);  
+       raise notice 'Minute: %', date_part('minute', today);  
+       raise notice 'Second: %', date_part('second', today);  
+       raise notice 'Day of Week: %', date_part('dow', today);  
+       raise notice 'Day of Year: %', date_part('doy', today);  
+       raise notice 'Century: %', date_part('century', today);  
+       raise notice 'Decade: %', date_part('decade', today);  
+    end  
+$$
+```
+
+>date türü ile time'a ilişkin bilgiler istendiğinde geceyarısı (midnight) zamanı olarak verilir. time türü ile date'e ilişkin bilgiler alınmaya çalışıldığında çalışma zamanı hatası (runtime error) oluşur. 
+
+###### to_date ve to_timestamp Fonksiyonları
+
+>Bu fonksiyonlar yazıyı sırasıyla date ve timestamp türüne çevirmek için kullanılır. Bu fonksiyon tarihe ilişkin yazının format bilgisini de alır. Format bilgisinde `D -> Day, M -> Month, Y -> Year, HH24 -> 24 Hour, HH12 -> 12 Hour, MI -> Minute, SS -> Second`biçimindedir. Diğer format bilgileri fonksiyonların dokümantasyonundan elde edilebilir.
+
+```sql
+do $$  
+    declare  
+        birth_date date;  
+        birth_date_str char(10);  
+        date_format_str char(10);  
+    begin  
+        date_format_str = 'DD/MM/YYYY';  
+        birth_date_str = '10/09/1976';  
+        birth_date = to_date(birth_date_str, date_format_str);  
+  
+        raise notice 'Day of week:%', date_part('dow', birth_date);  
+    end  
+$$
+```
+
+```sql
+do $$  
+    declare  
+        date_time timestamp;  
+        date_time_str char(30);  
+        date_time_format_str char(30);  
+    begin  
+        date_time_format_str = 'DD/MM/YYYY HH24:MI:SS';  
+        date_time_str = '09/03/2025 21:44:00';  
+        date_time = to_timestamp(date_time_str, date_time_format_str);  
+  
+        raise notice 'Date:%', date_time;  
+    end  
+$$
+```
+
+
+###### age Fonksiyonu
+
+>Bu fonksiyon, o anki tarih ile parametresi ile aldığı tarih arasındaki farkı interval olarak döndürür.
+
+```sql
+do $$  
+    declare  
+        birth_date date;  
+        birth_date_str char(10);  
+        date_format_str char(10);  
+    begin  
+        date_format_str = 'DD/FF/YYYY';  
+        birth_date_str = '10/09/1976';  
+        birth_date = to_date(birth_date_str, date_format_str);  
+  
+        raise notice 'Age:%', age(birth_date);  
+    end  
+$$
+```
+
+###### date_trunc Fonksiyonu
+
+>Bu fonksiyon aldığı tarih, zaman ya da tarih zaman bilgisini aldığı anahtara göre default değerleri olacak şekilde yeni bir değere geri döner. Format, `yıl, ay, gün, saat, dakika, saniye, ...` sırasıyladır. Örneğin anahtar değeri olarak hour alırsa saatin sağında bulunan değerleri sıfırlar ya da örneğin day alırsa zaman bilgisini sıfırlamış olur. 
+
+```sql
+do $$  
+    declare  
+       now timestamp = current_timestamp;  
+    begin  
+        raise notice '%', now;  
+        raise notice '%', date_trunc('year', now);  
+        raise notice '%', date_trunc('mon', now);  
+        raise notice '%', date_trunc('day', now);  
+        raise notice '%', date_trunc('hour', now);  
+        raise notice '%', date_trunc('minute', now);  
+        raise notice '%', date_trunc('second', now);  
+    end  
+$$
+```
+
+##### Bir Tarihe İlişkin Ayın Son Gününün Bulunması
+
+>PostgreSQL'de maalesef bir tarihe ilişkin ayın son gününü tarih olarak veren bir fonksiyon hazır olarak yoktur. Bu durumda gerektiğinde programcı bunu kendi yazmalıdır. Aşağıdaki fonksiyon ile ayın sonu günü elde edilebilir:
+
+```sql
+create or replace function end_of_month(date)  
+returns date  
+as  
+$$  
+    begin  
+        return date_trunc('month', $1) + '1 Month - 1 day';  
+    end  
+$$ language plpgsql;
+```
+
+```sql
+do $$  
+    declare  
+       today date = current_date;  
+    begin  
+        raise notice '%', today;  
+        raise notice '%', end_of_month(today);  
+    end  
+$$
+```
+
+>Bu fonksiyon ilgili tarihe ilişkin ayın ilk günü elde edilmiş ve 1 ay sonrasının 1 gün sonrasına ilişkin tarih elde edilerek aynı son günü bulunmuştur.
+
+###### Tarih, Zaman ve Tarih Zaman Karşılaştırması
+
+>Bu karşılaştırmalar tipik olarak `<, >, <=, >=, =, <>` gibi karşılaştırma operatörleri ile yapılabilir:
+
+```sql
+  
+do $$  
+    declare  
+        birth_date date = to_date('10/09/1976', 'DD/MM/YYYY');  
+        today date = current_date;  
+        birth_day date;  
+        age interval;  
+    begin  
+        birth_day := to_date(cast(date_part('day', birth_date) as varchar) || '/' || cast(date_part('month', birth_date) as varchar) || '/' || cast(date_part('year', today) as varchar), 'DD/MM/YYYY') ;  
+        age = age(birth_date);  
+  
+        if birth_day > today then  
+            raise notice 'Doğum gününüz şimdiden kutlu olsun. Yeni yaşınız:%', age;  
+        elseif birth_day = today then  
+            raise notice 'Doğum gününüz kutlu olsun. Yeni yaşınız:%', age;  
+        else  
+            raise notice 'Geçmiş Doğum gününüz kutlu olsun. Yeni yaşınız:%', age;  
+        end if;  
+    end  
+$$
+```
+
+
+###### make_date, make_timestamp ve extract Fonksiyonkları
+
+>make_date ve make_timestamp fonksiyonları parametreleri ile aldıkları bileşenlerden sırasıyla date ve timestamp karşılıklarını döndürürler. extract fonksiyonu date_part fonksiyonu ile hemen hemen aynı işi yapar.
+
+```sql
+  
+do $$  
+    declare  
+        birth_date date = to_date('10/09/1976', 'DD/MM/YYYY');  
+        today date = current_date;  
+        birth_day date;  
+        age interval;  
+    begin  
+        birth_day := make_date(cast(extract(year from birth_date) as int), cast(extract(mon from birth_date) as int), cast(extract(day from birth_date) as int));  
+        age = age(birth_date);  
+  
+        if birth_day > today then  
+            raise notice 'Doğum gününüz şimdiden kutlu olsun. Yeni yaşınız:%', age;  
+        elseif birth_day = today then  
+            raise notice 'Doğum gününüz kutlu olsun. Yeni yaşınız:%', age;  
+        else  
+            raise notice 'Geçmiş Doğum gününüz kutlu olsun. Yeni yaşınız:%', age;  
+        end if;  
+    end  
+$$
+```
+
+SSSSSSSSSSSSSSSS
+>**Sınıf Çalışması:** Aşağıdaki tabloya göre ilgili soruları yanıtlayınız
+>- students
+>	- citizen_id char(40)
+>	- first_name
+>	- middle_name
+>	- last_name
+>	- birth_date
+>	- register_date default(getdate())
+>- **Sorular:**
+>1. Parametresi ile aldığı doğum tarihi bilgisine göre aşağıdaki mesajardan birini döndüren `get_birth_date_message_tr` fonksiyonunu yazınız
+>	- Doğum günü geçmişse **Geçmiş doğum gününüz kutlu olsun. Yeni yaşınız: 49**
+>	- Doğum günü gelmemişse **Doğum gününüz şimdiden kutlu olsun. Yeni yaşınız: 49**
+>	- Doğum günü fonksiyonun çağrıldığı günü **Doğum gününüz kutlu olsun. Yeni yaşınız: 49**
+>2. Parametresi ile aldığı ay ve yıl bilgisine göre o ay ve o yıl içerisinde kayıt olmuş olan öğrencileri tablo olarak döndüren `get_students_by_register_month_and_year` fonksiyonunu yazınız.
+
+>**Sınıf Çalışması:** dpn24_bankappdb veritabanının 1.0.0 versiyonu için aşağıdaki soruları yanıtlayınız
+>- Parametresi ile aldığı müşteri numarasına göre müşterinin aşağıdaki bilgilerini tablo olarak döndüren 
+    `get_customer_by_number` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde
+        - Kartın son kullanma tarihinin geçip geçmediği, geçmişse "Son kullanma tarihi geçmiş" geçmemişse "Son kullanma tarihi geçmemiş"
+>
+>- Parametresi ile aldığı kart tür id'sine göre yurt dışında yaşayan müşterilere ilişkin aşağıdaki bilgileri tablo biçiminde döndüren `get_non_local_customers_by_card_type_id` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde
+        - Kartın son kullanma tarihinin geçip geçmediği, geçmişse "Son kullanma tarihi geçmiş" geçmemişse 
+        "Son kullanma tarihi geçmemiş"
+
+>- Parametresi ile aldığı kart tür id'sine göre yurt içinde yaşayan kart süreleri dolmuş müşterileri tablo biçiminde döndüren `get_local_customers_by_card_type_id` fonksiyonunu yazınız
+    Bilgiler:
+        - Adı soyadı
+        - Kart numarası: İlk ve son 4 hanesi görünecek diğerleri X olarak görünecektir
+        - security_code: İlk karakter görünecek geri kalanlar X biçiminde görünecektir
+        - Kartın son kullanma tarihi
+        - Kart türünün yazısal karşılığı
+        - Kart sahibinin personel olup olmadığı, personel ise "Personel" değilse "Personel değil" biçiminde            
+
+##### Otomatik Belirlenen Değerin Elde Edilmesi
+
+>PostgreSQL'de otomatik belirlenen değerlerin elde edilmesi için `currval` fonksiyonu kullanılır. Bu fonksiyon `register class` ismini alır. Programcı register class için herhangi bir belirleme yapmamışsa bu isim şu formatta oluşturulur:
+>
+```sql
+<tablo ismi>_<alan adı>_seq
+```
+
+Örneğin students isimli bir tablonun otomatik artan alan adı student_id ise register class ismi default olarak şu şekilde oluşturulur:
+
+```sql
+students_student_id_seq
+```
+
+```sql
+create table students (  
+    student_id serial primary key,  
+    name varchar(50),  
+    birth_date date  
+);  
+  
+insert into students (name, birth_date) values ('Alice', '1990-01-01');  
+  
+create or replace function insert_student(varchar(50), birth_date date)  
+returns int  
+as 
+$$  
+begin  
+    -- Transaction safe yapılacak  
+    insert into students (name, birth_date) values ($1, $2);
+     
+    return currval('students_student_id_seq');  
+end  
+$$ language plpgsql;
+```
+
+```sql
+do $$  
+    begin  
+       raise notice '%', insert_student('Oğuz', '1976-09-10');  
+    end  
+$$
+```
+
+
+##### Stored Procedures
+
+>
 
