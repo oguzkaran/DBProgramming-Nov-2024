@@ -1044,7 +1044,7 @@ create table airports (
 
 ###### datepart Fonksiyonu
 
->Bu fonksiyon ile bir tarih, zaman ya da tarih-zamana ilişkin bileşenler elde edilebilir. Burada `weekday`, `1 Pazar, 2 Pazartesi, ..., 3 Cumartesi` olacak şekildedir.
+>Bu fonksiyon ile bir tarih, zaman ya da tarih-zamana ilişkin bileşenler elde edilebilir. Burada `weekday`, `1 Pazar, 2 Pazartesi, ..., 7 Cumartesi` olacak şekildedir.
 >
 ```sql
 declare @now datetime = getdate()  
@@ -1158,6 +1158,8 @@ return (
     select * from students where datepart(month, register_date) = @month and datepart(year, register_date) = @year  
 )
 ```
+
+SSSSSSSSSSSSSSSSSSS
 
 >**Sınıf Çalışması:** dpn24_bankappdb veritabanının 1.0.0 versiyonu için aşağıdaki soruları yanıtlayınız
 >- Parametresi ile aldığı müşteri numarasına göre müşterinin aşağıdaki bilgilerini tablo olarak döndüren 
