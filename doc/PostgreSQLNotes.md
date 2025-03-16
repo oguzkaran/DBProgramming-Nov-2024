@@ -672,7 +672,6 @@ from
               inner join passengers p on pf.passenger_id = p.citizen_id;
 ```
 
-
 ###### initcap fonksiyonu
 
 >Bu fonksiyon yazı içerisindeki whitespace karakterlere göre ilgili kelimeleri **upper camel case** durumuna getirir
@@ -1625,7 +1624,7 @@ do $$
 $$
 ```
 
->Bu fonksiyon ilgili tarihe ilişkin ayın ilk günü elde edilmiş ve 1 ay sonrasının 1 gün sonrasına ilişkin tarih elde edilerek aynı son günü bulunmuştur.
+>Bu fonksiyon ilgili tarihe ilişkin ayın ilk günü elde edilmiş ve 1 ay sonrasının 1 gün öncesine ilişkin tarih elde edilerek aynı son günü bulunmuştur.
 
 ###### Tarih, Zaman ve Tarih Zaman Karşılaştırması
 
@@ -1668,7 +1667,7 @@ do $$
         birth_day date;  
         age interval;  
     begin  
-        birth_day := make_date(cast(extract(year from birth_date) as int), cast(extract(mon from birth_date) as int), cast(extract(day from birth_date) as int));  
+        birth_day := make_date(cast(extract(year from today) as int), cast(extract(mon from birth_date) as int), cast(extract(day from birth_date) as int));  
         age = age(birth_date);  
   
         if birth_day > today then  
@@ -1774,8 +1773,250 @@ do $$
 $$
 ```
 
-
 ##### Stored Procedures
 
+>PostgreSQL'de `stored procedure (SP)`, `11` sürümü ile eklenmiştir. SP'lerin geri dönüş değeri kavramı yoktur. void da yazılmaz. Ancak, SP içerisinde return deyimi tek başına sonlandırmak amaçlı istenirse kullanılabilir. SP'ler parametresiz de olabilirler. SP'ler kullanılacak language bilgisi fonksiyonun sonunda verilmez, fonksiyonun bloğu başlamadan verilebilir. Bir SP `create procedure` veya `create or replace procedure` cümlesi ile yaratılır. SP'ler `inout` parametreli olabilirler. Fonksiyon ile SP'lerin farkları bölüm sonunda ayrıca ele alınacaktır. Bir SP `call` komutu ile çalıştırılır. 
+
+```sql
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+);  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+);  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+);  
+  
+create or replace procedure sp_insert_person(char(11), varchar(300), varchar(300), date)  
+language plpgsql  
+as  
+$$  
+declare  
+    age double precision;  
+begin  
+    age = extract(epoch from age($4))::double precision / (60. * 60 * 24 * 365);  
+  
+    if age < 18 then  
+        insert into people_younger (citizen_id, first_name, last_name, birth_date) values ($1, $2, $3, $4);  
+    elseif age < 65 then  
+        insert into people (citizen_id, first_name, last_name, birth_date) values ($1, $2, $3, $4);  
+    else  
+        insert into people_older (citizen_id, first_name, last_name, birth_date) values ($1, $2, $3, $4);  
+    end if;  
+end;  
+$$;
+```
+
+>Aşağıdaki örneği inceleyiniz
+
+```sql
+create table categories (  
+    category_id serial primary key,  
+    description varchar(100) not null  
+);  
+  
+insert into categories (description) values ('Food'), ('Drinks'), ('Electronics');  
+  
+create table products (  
+    code varchar(100) primary key,  
+    category_id int references categories(category_id) not null,  
+    name varchar(500) not null,  
+    unit_price double precision not null  
+);  
+  
+create table payments (  
+    payment_id serial primary key,  
+    date timestamp default (current_timestamp) not null  
+);  
+  
+create table payments_to_products (  
+    payment_to_product_id serial primary key,  
+    payment_id int references payments(payment_id) not null,  
+    code varchar(100) references products(code) not null,  
+    amount int not null,  
+    unit_price double precision not null  
+);  
+  
+create procedure sp_insert_product(varchar(100), int, varchar(500), double precision)  
+language plpgsql  
+as $$  
+begin  
+    insert into products (code, category_id, name, unit_price) values ($1, $2, $3, $4);  
+end;  
+$$;  
+  
+create or replace procedure sp_pay_first(varchar(100), int, double precision)  
+language plpgsql  
+as $$  
+declare  
+    payment_id int;  
+begin  
+    -- Must be transaction safe  
+    insert into payments default values;  
+    payment_id = currval('payments_payment_id_seq');  
+    insert into payments_to_products (payment_id, code, amount, unit_price) values (payment_id, $1, $2, $3);  
+end;  
+$$;  
+  
+create or replace procedure sp_pay(int, varchar(100), int, double precision)  
+    language plpgsql  
+as $$  
+begin  
+    insert into payments_to_products (payment_id, code, amount, unit_price) values ($1, $2, $3, $4);  
+end;  
+$$;  
+  
+  
+call sp_insert_product('LPT-100', 1, 'Laptop', 1000.0);  
+call sp_pay_first('LPT-100', 23, 10.0);
+```
+
+>SP ve fonksiyon arasındaki temel farklar şu şekilde özetlenebilir:
+
+| Procedure                                                         | Fonksiyon                                             |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| Geri Dönüş Değeri Kavramı Yoktur                                  | Geri Dönüş Değeri Kavramı vardır                      |
+| CALL komutu ile çalıştırılır                                      | Select veya blok içerisinde çağrılır                  |
+| commit ve rollback gibi transaction yönetim işlemleri yapılabilir | Transaction'a doğrudan müdahale edilemez              |
+| language bildirimi fonksiyon bloğundan önce yapılabilir           | language bildirimi fonksiyon bloğunun sonunda yapılır |
+| PostgreSQL 11 ile eklenmiştir                                     | İlk sürümden beri vardır                              |
+
+##### Aggregate Fonksiyonlar
+
+>Bu fonksiyonlar sorgu içerisindeki bilgilere göre kümülatif biçimde işlem yaparak sonuç elde etmek için kullanılırlar. Bu fonksiyonlar özellikle gruplamada da çok sık kullanılmaktadır. Gruplama işlemi ve `group by` operatörü ileride ele alınacaktır.
+
+>Aşağıdaki aggregate fonksiyonlar `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonu ile örneklenmiştir.
+
+###### avg Fonksiyonu 
+
+>Bu fonksiyon parametresi ile aldığı alana ilişkin değerlerin ortalamasını hesaplar
+
+>Aşağıdaki örnekte hayvanların yaşlarının ortalamasını hesaplayan bir fonksiyon yazılmıştır
 >
+```sql
+create or replace function get_age_average()  
+returns double precision  
+as $$  
+declare  
+    average real;  
+begin  
+    select avg(extract(epoch from age(birth_date))::double precision / (60. * 60 * 24 * 365)) from animals into average;  
+  
+    return average;  
+end  
+$$ language plpgsql;
+```
+
+###### sum Fonksiyonu
+>Bu fonksiyon parametresi ile aldığı alana ilişkin değerlerin ı hesaplar.
+
+>Aşağıdaki örnekte hayvanların yaşları toplamını hesaplayan bir fonksiyon yazılmıştır
+```sql
+create or replace function get_age_sum()  
+returns double precision  
+as $$  
+declare  
+    average real;  
+begin  
+    select sum(extract(epoch from age(birth_date))::double precision / (60. * 60 * 24 * 365)) from animals into average;  
+  
+    return average;  
+end  
+$$ language plpgsql;
+```
+
+##### count Fonksiyonu
+
+>Bu fonksiyon ile sorgunun kayıt (record) sayısı elde edilebilir. Tipik olarak bu fonksiyon argüman olarak `*`değerini alır. 
+
+>Aşağıdaki örnekte hayvanların sayısını hesaplayan sorgu yazılmıştır
+
+```sql
+select count(*) from animals;
+```
+
+>Aşağıdaki örnekte veterine gelen ve tedavi diploma_no'su verilen bir veterinere gelen hasta sayını hesaplayan sorgu yazılmıştır
+
+```sql
+select count(*) from veterinarian_to_animals where diploma_no = 67;
+```
+
+###### min ve max Fonksiyonları
+
+>Bu fonksiyonlar sırasıyla aldıkları alana ilişkin en küçük ve en büyük değeri hesaplarlar
+
+>Aşağıdaki örnekte hayvanlar içerisindeki en büyük ve en küçük yaşı veren fonksiyonlar yazılmıştır
+
+```sql
+create or replace function get_min_age()  
+    returns double precision  
+as $$  
+declare  
+    average real;  
+begin  
+    select min(extract(epoch from age(birth_date))::double precision / (60. * 60 * 24 * 365)) from animals into average;  
+  
+    return average;  
+end  
+$$ language plpgsql;  
+  
+create or replace function get_max_age()  
+    returns double precision  
+as $$  
+declare  
+    average real;  
+begin  
+    select max(extract(epoch from age(birth_date))::double precision / (60. * 60 * 24 * 365)) from animals into average;  
+  
+    return average;  
+end  
+$$ language plpgsql;
+```
+
+>Aşağıdaki örnekte en büyük yaş ile en küçük yaşın ortalaması elde edilen sorgu yazılmıştır
+
+```sql
+create or replace function get_age(date)  
+returns double precision as  
+$$  
+    begin  
+        return extract(epoch from age($1))::double precision / (60. * 60 * 24 * 365);  
+    end;  
+$$ language plpgsql;  
+  
+select (max(get_age(birth_date)) + min(get_age(birth_date)) / 2) from animals
+```
+
+
+>**Sınıf Çalışması:** `dpn24_veterinerian_hospital_db` veritabanının `1.0.0` versiyonunda diploma_no'su bir veteriner için ödenen ücretlerin ortalamasını döndüren `get_prices_avg_by_diploma_no` fonksiyonunu yazınız
+
+**Çözüm:**
+```sql
+create or replace function get_prices_avg_by_diploma_no(bigint)  
+    returns double precision  
+as $$  
+declare  
+        average double precision;  
+begin  
+    select avg(vtap.price) from  
+    veterinarian_to_animals vta inner join veterinarian_to_animal_prices vtap on vta.veterinarian_to_animal_id = vtap.veterinarian_to_animal_id  
+    where vta.diploma_no = $1 into average;  
+    return average;  
+end  
+$$ language plpgsql;
+```
+
+
 
