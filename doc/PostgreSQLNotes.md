@@ -2018,5 +2018,282 @@ end
 $$ language plpgsql;
 ```
 
+##### group by Clause ve having Operatörü
 
+>`group by clause` özellikle aggregate fonksiyonlarla birlikte gruplama işlemi için çok sık karşımıza çıkan sorgulardandır. Gruplarken aynı zamanda gruplamaya yönelik koşul da belirtilecekse `having` operatörü kullanılır. 
+
+>Aşağıdaki örneği ve ilgili sorguları inceleyiniz
+>**Örnek:** Aşağıdaki tabloları `dpn24_school_db` veritabanında oluşturunuz ve ilgili soruları yanıtlayınız
+>**Tablolar:**
+>- students
+>	- student_id int identity
+>	- citizen_number char(11)
+>	- first_name nvarchar(100)
+>	- middle_name nvarchar(100)
+>	- last_name nvarchar(100)
+>	- birth_date date
+>	- address nvarchar(max)
+>- lectures
+>	- lecture_code char(7)
+>	- name nvarchar(100)
+>	- credits int
+>- grades
+>	- grade_id int identity
+>	- description nvarchar(2)
+>	- value real
+>- enrolls
+>	- enroll_id bigint identity
+>	- student_id foreign key
+>	- lecture_code foreign key
+>	- grade_id foreign key
+>
+>Harf notları ve karşılık gelen değerler şu şekilde olabilir
+> - AA, 4.0
+> - BA, 3.5
+> - BB, 3.0
+> - CB, 2.5
+> - CC, 2.0
+> - DC, 1.5
+> - DD, 1.0
+> - FF, 0.0
+> - NA, -1
+> - P, -1
+> **Sorular:**
+> 1. Parametresi ile aldığı ders kodu için öğrencilerin sayısını notlara göre gruplayarak getiren sorguya geri dönen `get_histogram_data_by_lecture_code` tablo döndüren fonksiyonunu yazınız.
+> 2. Her bir ders için öğrenci sayılarını veren sorguya geri dönen `get_all_lectures_students_count` tablo döndüren fonksiyonunu yazınız
+> 3. Kredi toplamları parametresi ile aldığı değerden büyük olan öğrencilerin bilgilerine geri dönen `get_students_by_total_credits_greater` tablo döndüren fonksiyonunu yazınız.
+> 4. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı dersleri döndüren `get_lectures_by_registered_students_count_greater` tablo döndüren fonksiyonu yazınız.
+> 5. Dersi, parametresi ile aldığı sayıdan fazla olan sayıda öğrencinin aldığı derslerin ağırlıklı not ortalamalarını döndüren `get_lectures_grade_averages_by_registered_students_count_greater` tablo döndüren fonksiyonu yazınız. 
+> 	**Açıklama:** Ağırlıklı not ortalamasını hesaplarken bir ders için, dersin kredisi ile alınan nota ilişkin değer çarpılır. Ortalama bu çarpımlarını ortalaması hesaplanır
+> 6. Bir dersin açılabilmesi için belli sayıda öğrencinin olması gerektiği bir durumda açılması için gereken minimum öğrenci sayısını parametre olarak alan ve açılabilen dersleri getiren `get_open_lectures_by_minimum_count` fonksiyonunu yazınız.
+
+>**Çözümler:**
+
+```sql
+create database dpn24_school_db  
+  
+use dpn24_school_db  
+  
+create table students(  
+    student_id int primary key identity(1, 1),  
+    citizen_number char(40) unique not null,  
+    first_name nvarchar(100) not null,  
+    middle_name nvarchar(100),  
+    last_name nvarchar(100) not null,  
+    birth_date date not null,  
+    address nvarchar(max)  
+)  
+  
+create table lectures(  
+    lecture_code char(7) primary key,  
+    name nvarchar(100) not null,  
+    credits int not null,  
+)  
+  
+  
+create table grades (  
+    grade_id int primary key identity(1, 1),  
+    description nvarchar(2) not null,  
+    value real not null  
+)  
+  
+insert into grades (description, value) values ('AA', 4.0), ('BA', 3.5), ('BB', 3.0), ('CB', 2.5), ('CC', 2.0), ('DC', 1.5), ('DD', 1.0), ('FF', 0.0), ('NA', 0.0), ('P', -1)  
+drop table enrolls  
+  
+  
+create table enrolls (  
+    enroll_id bigint primary key identity(1, 1),  
+    student_id int foreign key references students(student_id),  
+    lecture_code char(7) foreign key references lectures(lecture_code),  
+    grade_id int foreign key references grades(grade_id)  
+)  
+  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(max))  
+returns nvarchar(max)  
+as  
+begin  
+    declare @full_text nvarchar(max) = '';  
+  
+    if @first is not null  
+        set @full_text = @first;  
+  
+    if @second is not null  
+        begin                   if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @second;  
+        end  
+  
+    if @third is not null  
+        begin                   if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @third;  
+        end  
+  
+    return @full_text;  
+end  
+  
+-- 1  
+create function get_histogram_data_by_lecture_code(@lecture_code char(7))  
+returns table  
+as  
+return (  
+    select g.description, count(*) as count from  
+    enrolls e inner join grades g on g.grade_id = e.grade_id  
+    where e.lecture_code = @lecture_code  
+    group by g.description  
+)  
+  
+-- 2  
+create function get_all_lectures_students_count()  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, count(*) as count  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    group by lec.name, lec.lecture_code  
+)  
+  
+-- 3  
+create function get_students_by_total_credits_greater(@credits int)  
+returns table  
+as  
+return (  
+    select s.citizen_number,  
+           dbo.get_full_text(s.first_name, s.middle_name, s.last_name) as full_name,  
+           sum(lec.credits) as total_credits  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    inner join students s on s.student_id = e.student_id  
+    group by s.citizen_number, dbo.get_full_text(s.first_name, s.middle_name, s.last_name)  
+    having sum(lec.credits) > @credits  
+)  
+  
+-- 4  
+create function get_lectures_by_registered_students_count_greater(@count int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, count(*) as count  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    group by lec.lecture_code, lec.name having count(*) > @count  
+)  
+  
+-- 5  
+create function get_lectures_grade_averages_by_registered_students_count_greater(@count int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, avg(lec.credits * g.value) as average  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    inner join grades g on e.grade_id = g.grade_id  
+    group by lec.lecture_code, lec.name having count(*) > @count  
+)  
+  
+-- 6  
+create function get_open_lectures_by_minimum_count(@minCount int)  
+returns table  
+as  
+return (  
+    select lec.lecture_code, lec.name, lec.credits, count(*) as count  
+    from  
+    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+    group by lec.lecture_code, lec.name, lec.credits having count(*) > @minCount  
+)
+
+```
+
+
+>**Sınıf Çalışması:** Aşağıdaki tablolara göre ilgili soruları yanıtlayınız. 
+>
+>**Sorular:**
+>1. Kaç tane ürün vardır?
+>2. Stokta bulunan ürünler kaç tanedir?
+>3. Stokta bulunan ürünlerin toplam sayısı?
+>4. Stokta bulunan ürünlerin toplam maliyetleri ve toplam satış fiyatları?
+>5. Stokta bulunan ürünlerin hepsi satıldığında kar-zarar durumuna ilişkin değer?
+>6. En pahalı ürün ile en ucuz ürünün satış fiyatları?
+>7. En fazla toplam fiyata sahip ürün ile en az toplam fiyata sahip ürünlerin toplam fiyatları?
+>8. Stokta bulunan ürünleri kategorilerine göre gruplayarak kar-zarar durumunu veren sorgu?
+>9. Stokta bulunan ürünleri kategorilerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
+>10. Stokta bulunan ürünleri kategorilerileri ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerin toplam fiyatlarını veren sorgu
+>11. Stokta bulunan ürünleri kategorilerine ve kategori id'lerine göre gruplayarak en çok kar getiren ürünlerden maksimum karları, bilinen bir değerden büyük olanların toplam fiyatlarını getiren sorgu
+
+```sql
+create table product_categories (  
+    product_category_id int primary key identity(1, 1),  
+    description nvarchar(300) not null  
+)  
+  
+insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables')  
+  
+create table products (  
+    code varchar(50) primary key,  
+    product_category_id int foreign key references product_categories(product_category_id) not null,  
+    name nvarchar(300) not null,  
+    stock real not null,  
+    cost money default(0.0) not null,  
+    unit_price money default(0.0) not null  
+)  
+  
+-- 1  
+select count(*) from products;  
+  
+-- 2  
+select count(*) from products where stock > 0  
+  
+-- 3  
+select sum(stock) from products where stock > 0;  
+  
+-- 4  
+select sum(stock * cost) total_cost, sum(stock * products.unit_price) from products where stock > 0  
+  
+-- 5  
+select sum(stock * (unit_price - cost)) total from products where stock > 0  
+  
+-- 6  
+select min(unit_price), max(unit_price) from products;  
+  
+-- 7  
+select min(stock * unit_price), max(stock * unit_price) from products where stock > 0  
+  
+-- 8  
+select pc.description, sum(p.stock * (p.unit_price - p.cost)) total  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description  
+  
+-- 9  
+select pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description  
+  
+-- 10  
+select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+where stock > 0  
+group by pc.description, pc.product_category_id  
+  
+-- 11  
+create function get_maximum_total_greater(@threshold money)  
+returns table  
+as  
+return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+    from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+    where stock > 0  
+    group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) >= @threshold  
+)  
+  
+create function get_maximum_total_less(@threshold money)  
+returns table  
+as  
+return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+        from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+        where stock > 0  
+        group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) < @threshold  
+)
+```
 
