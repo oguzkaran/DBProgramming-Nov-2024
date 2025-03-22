@@ -2070,139 +2070,145 @@ $$ language plpgsql;
 >**Çözümler:**
 
 ```sql
-create database dpn24_school_db  
-  
-use dpn24_school_db  
-  
 create table students(  
-    student_id int primary key identity(1, 1),  
+    student_id serial primary key,  
     citizen_number char(40) unique not null,  
-    first_name nvarchar(100) not null,  
-    middle_name nvarchar(100),  
-    last_name nvarchar(100) not null,  
+    first_name varchar(100) not null,  
+    middle_name varchar(100),  
+    last_name varchar(100) not null,  
     birth_date date not null,  
-    address nvarchar(max)  
-)  
+    address varchar(1024)  
+);  
   
 create table lectures(  
     lecture_code char(7) primary key,  
-    name nvarchar(100) not null,  
-    credits int not null,  
-)  
+    name varchar(100) not null,  
+    credits int not null  
+);  
   
   
 create table grades (  
-    grade_id int primary key identity(1, 1),  
-    description nvarchar(2) not null,  
+    grade_id serial primary key,  
+    description varchar(2) not null,  
     value real not null  
-)  
+);  
   
-insert into grades (description, value) values ('AA', 4.0), ('BA', 3.5), ('BB', 3.0), ('CB', 2.5), ('CC', 2.0), ('DC', 1.5), ('DD', 1.0), ('FF', 0.0), ('NA', 0.0), ('P', -1)  
-drop table enrolls  
-  
+insert into grades (description, value) values ('AA', 4.0), ('BA', 3.5), ('BB', 3.0), ('CB', 2.5), ('CC', 2.0), ('DC', 1.5), ('DD', 1.0), ('FF', 0.0), ('NA', 0.0), ('P', -1);  
   
 create table enrolls (  
-    enroll_id bigint primary key identity(1, 1),  
-    student_id int foreign key references students(student_id),  
-    lecture_code char(7) foreign key references lectures(lecture_code),  
-    grade_id int foreign key references grades(grade_id)  
-)  
+    enroll_id bigserial primary key,  
+    student_id int references students(student_id),  
+    lecture_code char(7) references lectures(lecture_code),  
+    grade_id int references grades(grade_id)  
+);  
   
-create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(max))  
-returns nvarchar(max)  
-as  
-begin  
-    declare @full_text nvarchar(max) = '';  
+create or replace function get_full_text(first varchar(250), second varchar(250), third varchar(250))  
+returns varchar(1024)  
+as $$  
+    declare  
+        full_text varchar(1024) = '';  
+    begin  
+        if first is not null then  
+            full_text = first;  
+        end if;  
   
-    if @first is not null  
-        set @full_text = @first;  
+        if second is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || second;  
+        end if;  
   
-    if @second is not null  
-        begin                   if @full_text <> ''  
-                set @full_text = @full_text + ' ';  
-            set @full_text = @full_text + @second;  
-        end  
+        if third is not null then  
+            if full_text <> '' then  
+                full_text = full_text || ' ';  
+            end if;  
+            full_text = full_text || third;  
+        end if;  
   
-    if @third is not null  
-        begin                   if @full_text <> ''  
-                set @full_text = @full_text + ' ';  
-            set @full_text = @full_text + @third;  
-        end  
+        return full_text;  
+    end  
+$$ language plpgsql;  
   
-    return @full_text;  
-end  
   
 -- 1  
-create function get_histogram_data_by_lecture_code(@lecture_code char(7))  
-returns table  
-as  
-return (  
-    select g.description, count(*) as count from  
-    enrolls e inner join grades g on g.grade_id = e.grade_id  
-    where e.lecture_code = @lecture_code  
-    group by g.description  
-)  
+create or replace function get_histogram_data_by_lecture_code(char(7))  
+returns table (description varchar(2), count bigint)  
+as $$  
+begin  
+    return query select g.description, count(*) as count from  
+                           enrolls e inner join grades g on g.grade_id = e.grade_id  
+                       where e.lecture_code = $1  
+                       group by g.description;  
+end  
+$$ language plpgsql;  
   
 -- 2  
-create function get_all_lectures_students_count()  
-returns table  
-as  
-return (  
-    select lec.lecture_code, lec.name, count(*) as count  
-    from  
-    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
-    group by lec.name, lec.lecture_code  
-)  
+create or replace function get_all_lectures_students_count()  
+returns table (lecture_code char(7), name varchar(100), count bigint)  
+as $$  
+    begin  
+        return query select lec.lecture_code, lec.name, count(*) as count  
+            from  
+                lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+            group by lec.name, lec.lecture_code;  
+    end;  
+$$ language plpgsql;  
   
 -- 3  
-create function get_students_by_total_credits_greater(@credits int)  
-returns table  
-as  
-return (  
-    select s.citizen_number,  
-           dbo.get_full_text(s.first_name, s.middle_name, s.last_name) as full_name,  
-           sum(lec.credits) as total_credits  
-    from  
-    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
-    inner join students s on s.student_id = e.student_id  
-    group by s.citizen_number, dbo.get_full_text(s.first_name, s.middle_name, s.last_name)  
-    having sum(lec.credits) > @credits  
-)  
+create or replace function get_students_by_total_credits_greater(int)  
+returns table (citizen_number char(40), full_name varchar(1024), total_credits bigint)  
+as $$  
+begin  
+    return query select s.citizen_number,  
+               get_full_text(s.first_name, s.middle_name, s.last_name) as full_name,  
+               sum(lec.credits) as total_credits  
+        from  
+            lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+                         inner join students s on s.student_id = e.student_id  
+        group by s.citizen_number, get_full_text(s.first_name, s.middle_name, s.last_name)  
+        having sum(lec.credits) > $1;  
+  
+end  
+$$ language plpgsql;  
   
 -- 4  
-create function get_lectures_by_registered_students_count_greater(@count int)  
-returns table  
-as  
-return (  
-    select lec.lecture_code, lec.name, count(*) as count  
-    from  
-    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
-    group by lec.lecture_code, lec.name having count(*) > @count  
-)  
+create or replace function get_lectures_by_registered_students_count_greater(int)  
+returns table (lecture_code char(7), name varchar(100), count bigint)  
+as $$  
+begin  
+        return query select lec.lecture_code, lec.name, count(*) as count  
+        from  
+            lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+        group by lec.lecture_code, lec.name having count(*) > $1;  
+end;  
+$$ language plpgsql;  
+  
   
 -- 5  
-create function get_lectures_grade_averages_by_registered_students_count_greater(@count int)  
-returns table  
-as  
-return (  
-    select lec.lecture_code, lec.name, avg(lec.credits * g.value) as average  
-    from  
-    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
-    inner join grades g on e.grade_id = g.grade_id  
-    group by lec.lecture_code, lec.name having count(*) > @count  
-)  
+create or replace function get_grade_averages_by_registered_students_count_greater(int)  
+returns table (lecture_code char(7), name varchar(100), average double precision)  
+as $$  
+begin  
+    return query select lec.lecture_code, lec.name, avg(lec.credits * g.value) as average  
+                       from  
+                           lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+                                        inner join grades g on e.grade_id = g.grade_id  
+                       group by lec.lecture_code, lec.name having count(*) > $1;  
+end  
+$$ language plpgsql;  
   
 -- 6  
-create function get_open_lectures_by_minimum_count(@minCount int)  
-returns table  
-as  
-return (  
-    select lec.lecture_code, lec.name, lec.credits, count(*) as count  
-    from  
-    lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
-    group by lec.lecture_code, lec.name, lec.credits having count(*) > @minCount  
-)
-
+create or replace function get_open_lectures_by_minimum_count(int)  
+returns table (lecture_code char(7), name varchar(100), credits int, count bigint)  
+as $$  
+    begin  
+        return query select lec.lecture_code, lec.name, lec.credits, count(*) as count  
+            from  
+                lectures lec inner join enrolls e on lec.lecture_code = e.lecture_code  
+            group by lec.lecture_code, lec.name, lec.credits having count(*) > $1;  
+    end  
+$$ language plpgsql;
 ```
 
 
@@ -2223,77 +2229,81 @@ return (
 
 ```sql
 create table product_categories (  
-    product_category_id int primary key identity(1, 1),  
-    description nvarchar(300) not null  
-)  
+    product_category_id serial primary key,  
+    description varchar(300) not null  
+);  
   
-insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables')  
+insert into product_categories (description) values ('Wear'), ('Electronics'), ('Auto'), ('Vegetables');  
   
 create table products (  
     code varchar(50) primary key,  
-    product_category_id int foreign key references product_categories(product_category_id) not null,  
-    name nvarchar(300) not null,  
+    product_category_id int references product_categories(product_category_id) not null,  
+    name varchar(300) not null,  
     stock real not null,  
     cost money default(0.0) not null,  
     unit_price money default(0.0) not null  
-)  
+);  
   
 -- 1  
 select count(*) from products;  
   
 -- 2  
-select count(*) from products where stock > 0  
+select count(*) from products where stock > 0;  
   
 -- 3  
 select sum(stock) from products where stock > 0;  
   
 -- 4  
-select sum(stock * cost) total_cost, sum(stock * products.unit_price) from products where stock > 0  
+select sum(stock * cost) total_cost, sum(stock * products.unit_price) from products where stock > 0;  
   
 -- 5  
-select sum(stock * (unit_price - cost)) total from products where stock > 0  
+select sum(stock * (unit_price - cost)) total from products where stock > 0;  
   
 -- 6  
 select min(unit_price), max(unit_price) from products;  
   
 -- 7  
-select min(stock * unit_price), max(stock * unit_price) from products where stock > 0  
+select min(stock * unit_price), max(stock * unit_price) from products where stock > 0;  
   
 -- 8  
 select pc.description, sum(p.stock * (p.unit_price - p.cost)) total  
 from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
 where stock > 0  
-group by pc.description  
+group by pc.description;  
   
 -- 9  
 select pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
 from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
 where stock > 0  
-group by pc.description  
+group by pc.description;  
   
 -- 10  
 select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
 from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
 where stock > 0  
-group by pc.description, pc.product_category_id  
+group by pc.description, pc.product_category_id;  
   
 -- 11  
-create function get_maximum_total_greater(@threshold money)  
-returns table  
-as  
-return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
-    from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
-    where stock > 0  
-    group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) >= @threshold  
-)  
+create or replace function get_maximum_total_greater(money)  
+returns table (product_category_id int, description varchar(300), maximum money)  
+as $$  
+    begin  
+        return query select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+                from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+                where stock > 0  
+                group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) >= $1;  
+    end  
+$$ language plpgsql;  
   
-create function get_maximum_total_less(@threshold money)  
-returns table  
-as  
-return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
-        from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
-        where stock > 0  
-        group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) < @threshold  
-)
+create function get_maximum_total_less(money)  
+    returns table (product_category_id int, description varchar(300), maximum money)  
+as $$  
+    begin  
+        return query select pc.product_category_id,  pc.description, max(p.stock * (p.unit_price - p.cost)) as maximum  
+                from products p inner join product_categories pc on pc.product_category_id = p.product_category_id  
+                where stock > 0  
+                group by pc.description, pc.product_category_id having max(p.stock * (p.unit_price - p.cost)) < $1;  
+    end  
+$$ language plpgsql;
 ```
 

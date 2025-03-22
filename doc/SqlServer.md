@@ -1501,7 +1501,7 @@ create table students(
 create table lectures(  
     lecture_code char(7) primary key,  
     name nvarchar(100) not null,  
-    credits int not null,  
+    credits int not null  
 )  
   
   
@@ -1512,9 +1512,7 @@ create table grades (
 )  
   
 insert into grades (description, value) values ('AA', 4.0), ('BA', 3.5), ('BB', 3.0), ('CB', 2.5), ('CC', 2.0), ('DC', 1.5), ('DD', 1.0), ('FF', 0.0), ('NA', 0.0), ('P', -1)  
-drop table enrolls  
-  
-  
+
 create table enrolls (  
     enroll_id bigint primary key identity(1, 1),  
     student_id int foreign key references students(student_id),  
@@ -1522,7 +1520,7 @@ create table enrolls (
     grade_id int foreign key references grades(grade_id)  
 )  
   
-create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(max))  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(250))  
 returns nvarchar(max)  
 as  
 begin  
@@ -1712,3 +1710,6 @@ return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_pr
 ```
 
 
+##### Triggers
+
+>
