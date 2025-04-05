@@ -1709,7 +1709,187 @@ return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_pr
 )
 ```
 
-
 ##### Triggers
 
->
+>VTYS'lerde insert, delete ve update yapıldığında otomatik olarak devreye girmesini istediğimiz kod parçalarına trigger denir. Bir trigger her ne kadar bir fonksiyon olsa da veritabanı programcısı ya da veritabanına erişen uygulamalar tarafından çağrılamaz. Trigger'lar SQL Server'da iki gruba ayrılır: **instead of trigger, after trigger.** instead of trigger'lar insert, delete veya update işlemlerinden hangisine ilişkinse, o işlem yapılır yapılmaz henüz veritabanına  yansıtılmadan devreye girer. Tipik olarak programcı trigger içerisinde işlemin veritabanına yansıtılıp yansıtılmayacağını belirleyen kodları yazar. Bir trigger'da duruma göre işlemin yapılması yani veritabanına yansıtılması	reddedilebilir. Şüphesiz bu tarz işlemler SP kullanarak da yapılabilir. Bu anlamda hangisinin tercih edileceği domain'e	(yani senaryoya) bağlıdır. After trigger, insert, delete veya update işlemi veritabanına yansıdıktan sonra devreye girer. 
+
+**Anahtar Notlar:** Trigger kullanımında programcının dikkatli olması gerekir. Çünkü trigger tüm kullanıcıları etkileyebilir. Bu durumda programcının örneğin kendi test işlemlerinde de trigger'ı devre dışı bırakması gerekebilir. Ayrıca trigger kodları çok zaman almayacak şekilde yazılmalıdır. Çünkü bir trigger devredeyken, trigger'ın yazıldığı veritabanı elemanı için başka bir işlem araya giremez (transaction safe). Bu da, duruma göre veritabanına erişen uygulamaların yavaş hizmet almasına ve/veya hizmet vermesine yol açabilir.	
+
+>instead of trigger'larda işlemin veritabanına yansıtılması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem	veritabanına yansıtılmaz. After trigger'larda ise veritabanına yansımış işlemin geri alınması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem veritabanına yansımış olarak kalır.  
+
+>Bir trigger `create trigger` cümlesi ile yaratılır. Bir trigger içerisinde yapılan işleme ilişkin verilere `inserted` ismi ile erişilir. update trigger için `update` fonksiyonu ile hangi alanın update edildiği sorgulanarak işlem yapılabilir. 
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+use testdb  
+  
+create table devices (  
+    device_id int primary key identity (1, 1),  
+    name nvarchar(300) not null,  
+    host nvarchar(300) not null,  
+    port int not null,  
+    latitude real,  
+    longitude real,  
+);  
+  
+  
+create trigger t_insert_device_instead_of on devices  
+instead of insert  
+as  
+begin  
+    declare @port int = (select port from inserted)  
+  
+    if 1024 <= @port and @port <= 65535  
+        insert into devices (name, host, port, latitude, longitude) (select name, host, port, latitude, longitude from inserted)  
+end  
+  
+create trigger t_update_device_instead_of on devices  
+instead of update  
+as  
+begin  
+    declare @port int = (select port from inserted)  
+      
+    if update(port) and 1024 <= @port and @port <= 65535  
+        update devices set port = @port where device_id = (select device_id from inserted)  
+  
+end  
+  
+insert into devices (name, host, port, latitude, longitude) values ('Rain Sensor', 'csystem.org/devices/rain', 125, 34.5, -120.5);  
+insert into devices (name, host, port, latitude, longitude) values ('Humidity Sensor', 'csystem.org/devices/humidity', 345, 34.5, -120.5);  
+insert into devices (name, host, port, latitude, longitude) values ('Weather Sensor', 'csystem.org/devices/weather', 3434, 34.5, -120.5);  
+  
+select * from devices;  
+  
+update devices set port = 346 where device_id = 1;  
+update devices set port = 6767 where device_id = 1;
+```
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create table devices (  
+    device_id int primary key identity (1, 1),  
+    name nvarchar(300) not null,  
+    host nvarchar(300) not null,  
+    port int not null,  
+    latitude real,  
+    longitude real,  
+);  
+  
+  
+create trigger t_insert_device_after on devices  
+after insert  
+as  
+begin  
+    declare @port int = (select port from inserted)  
+  
+    if 1024 > @port or @port > 65535  
+    begin  
+        declare @device_id int = (select device_id from inserted)  
+  
+        delete from devices where device_id = @device_id  
+    end  
+end  
+  
+insert into devices (name, host, port, latitude, longitude) values ('Rain Sensor', 'csystem.org/devices/rain', 1250, 34.5, -120.5);  
+insert into devices (name, host, port, latitude, longitude) values ('Humidity Sensor', 'csystem.org/devices/humidity', 345, 34.5, -120.5);  
+insert into devices (name, host, port, latitude, longitude) values ('Weather Sensor', 'csystem.org/devices/weather', 3434, 34.5, -120.5);
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları hazırlayınız ve ilgili soruyu yanıtlayınız
+>**Tablolar:**
+>- **people**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_younger**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_older**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>**Sorular:**
+>- insert işlemin yaşı 18'den büyük 65'den küçük olanları `people` tablosuna, 65'den büyük olanları `people_older` tablosuna ve 18'den küçük olanları `people_younger` tablosuna ekleyen instead of trigger'ları yazınız.
+>- Doğum tarihi bilgisinin güncellenmesi durumuna göre kontrol edip gerektiğinde ilgili tabloya veriyi aktaran instead of trigger'ları yazınız
+
+```sql
+use peopledb;  
+  
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create trigger t_insert_people_instead_of on people  
+instead of insert  
+as  
+begin  
+    declare @birth_date date = (select birth_date from inserted)  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.  
+  
+    if @age < 18  
+        insert into people_younger (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else if @age < 65  
+        insert into people (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else  
+        insert into people_older (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+end  
+  
+create trigger t_insert_people_younger_instead_of on people_younger  
+instead of insert  
+as  
+begin  
+    declare @birth_date date = (select birth_date from inserted)  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.  
+  
+    if @age < 18  
+        insert into people_younger (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else if @age < 65  
+        insert into people (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else  
+        insert into people_older (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+end  
+  
+create trigger t_insert_people_older_instead_of on people_older  
+instead of insert  
+as  
+begin  
+    declare @birth_date date = (select birth_date from inserted)  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.  
+  
+    if @age < 18  
+        insert into people_younger (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else if @age < 65  
+        insert into people (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+    else  
+        insert into people_older (citizen_id, first_name, last_name, birth_date) (select citizen_id, first_name, last_name, birth_date from inserted)  
+end  
+  
+insert into people (citizen_id, first_name, last_name, birth_date) values ('12345678904', 'John', 'Doe', '2013-01-01')  
+insert into people (citizen_id, first_name, last_name, birth_date) values ('12345678901', 'Jack', 'Doe', '1976-01-01')  
+insert into people (citizen_id, first_name, last_name, birth_date) values ('12345678904', 'Mary', 'Doe', '1934-01-01')
+```
+
+
