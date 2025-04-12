@@ -1893,3 +1893,57 @@ insert into people (citizen_id, first_name, last_name, birth_date) values ('1234
 ```
 
 
+##### Explicit Transaction
+
+>Bir transaction `begin tran` veya `begin transaction` cümlesi ile başlatılır. Artık bu noktadan sonra transaction'ın tamamlanması için `commit tran veya commit transaction` ya da `rollback tran veya rollback transaction` yapılması gerekir. Transaction'a istenirse bir isim de verilebilir. Bu durum ileride ele alınacaktır.
+>
+>Akış içerisinde herhangi bir error oluştuğunda `@@error` isimli bir global değişkene hataya ilişkin kod bilgisi atanır. İşlemde herhangi bir hata oluşmamışsa bu değişkenin içerisinde sıfır değeri bulunur. Bu durumda programcı transaction içerisinde yapılan bir işlemden sonra bu değişkenin değerini kontrol ederek akışa yön verir. 
+>
+>SQL Server'da explicit transaction yönetimi çok kompleks söz konusu değilse `goto` deyimi kullanılarak kolay bir biçimde yapılabilir. goto deyimi çok sık kullanılmasa da transaction işlemlerinde duruma göre tercih edilebilmektedir. goto deyimi bir etiket (label) bekler. Bu etiketin, önceden tanımlanmış olması gerekir. Etiket ismi değişken isimlendirme uygun herhangi bir isim olabilir. Tanımlama işlemi `:` atomu ile yapılır. Bu deyim ile akış ilgili etiketin bulunduğu koda dallanır (branch). 
+
+```sql
+create table sensors (  
+    sensor_id int primary key identity(1, 1),  
+    name nvarchar(250) not null,  
+    host nvarchar(100) not null,  
+)  
+  
+create table ports (  
+    sensor_id int foreign key references sensors(sensor_id) not null,  
+    number int check(0 < number and number < 65536) not null,  
+    constraint sensor_port_pk primary key(sensor_id, number)  
+)  
+  
+create procedure sp_insert_sensor_with_port(@name nvarchar(250), @host nvarchar(100), @port int)  
+as  
+begin  
+    declare @status int = 0  
+  
+    begin tran--saction  
+    insert into sensors (name, host) values (@name, @host)  
+  
+    declare @sensor_id int = @@identity  
+  
+    insert into ports (sensor_id, number) values (@sensor_id, @port)  
+    set @status = @@error  
+  
+    if @status <> 0  
+        goto END_TRANSACTION  
+  
+    commit tran--saction  
+END_TRANSACTION:  
+    if @status <> 0  
+        rollback tran--saction  
+end  
+  
+exec sp_insert_sensor_with_port 'rain', 'csystem.org/sensors/rain', 4500  
+exec sp_insert_sensor_with_port 'weather', 'csystem.org/sensors/weather', 450  
+exec sp_insert_sensor_with_port 'humidity', 'csystem.org/sensors/humidity', -450  
+exec sp_insert_sensor_with_port 'traffic', 'csystem.org/sensors/traffic', 450  
+  
+select * from sensors;  
+select * from ports;
+```
+
+
+

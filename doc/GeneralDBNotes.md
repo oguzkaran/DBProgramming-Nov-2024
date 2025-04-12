@@ -34,3 +34,22 @@
 >- **U**pdate
 >- **D**elete
 >Aslında CRUD DDL cümleleri için de kullanılabilir. CRUD işlemlerine ilişkin cümleler VTYS'ye göre değişiklik gösterebilir ve çoğunlukla çok kapsamlı cümleler kurulabilmektedir. Hatta Standart SQL'a ilişkin cümlelerin de detayları bulunur. Bunlar bir VTYS'ye özgü olarak ayrıca öğrenilmelidir. 
+
+##### Database Transaction
+
+>Transaction bir grup işin tek bir iş gibi yapılmasına verilen genel bir isimdir. Transaction genel olarak VTYS içerisindeki işleri temsil eder. Transaction'ın temelde iki tane amacı vardır. 
+>- İşlerin güvenilir (reliable) bir biçimde yapılması ve gerektiğinde geri alınabilmesidir (roll back). Yapılan iş veya işlerin tutarlı (robust) bir biçimde veritabanına yansıtılmasıdır (commit).
+>- Yapılmakta olan bir grup iş için başka işlerin araya girmesini engellemektir (atomic).
+
+>VTYS'lerde transaction dendiğinde tipik olarak 4 kavramın kısaltmasından oluşan **ACID (Atomicity, Consistency, Isolation, Durability)** akla gelir.
+
+>**Atomicity:** İşlerin kesilmeden yani araya başka işler girmeden yapılmasıdır
+>**Consistency:** Verilerin geçerliliğinin (validation) garanti altına alınmasıdır. Örneğin bir veri bir tabloya kaydedilmişse yani yazılma işlemi commit edilmişse artık verinin tutarlılığı ve tabloda olması garanti altına alınmış olur. Yani herhangi bir problem oluşmamış demektir. Çünkü `problem oluşsaydı veri yazılmamış olurdu` anlaşılır.
+>**Isolation:** Transaction ile yapılan işlerin başka işlerden ayrılması ya da başka bir deyişle soyutlanması demektir.
+>**Durability:** Bir transaction commit edilmişse, herhangi bir başka hatanın oluşması durumunda bile o kalıcık bozulmaz. Hata, server'ın abnormal bir biçimde sonlanması (crash) dolayısıyla bile oluşsa commit edilmiş verinin bozulma ihtimali çok düşüktür.
+>
+>VTYS'lerde transaction iki şekilde yapılabilir: **implicit transaction, explicit transaction**
+>- **implicit transaction:** Programcının ayrıca düşünmesi gerekmeyen transaction'dır. Örneğin, bir sorgu işlemi tamamlanana kadar o sorguya ilişkin tablolarda değişikliğe tol açacak işlemler (insert, delete, update) yapılamaz. Ya da örneğin `insert many` işleminde tüm veriler eklenene kadar o tablo ile ilgili herhangi bir işlem yapılamaz. `insert many` işleminde herhangi bir verinin insert edilmesinde problem oluşursa öncesinde yapılmış olan insert işlemleri otomatik olarak geri alınır (roll back). Bu iki örnek için VTYS programcısının transaction için herhangi bir işlem yapmasına gerek yoktur.
+>- **explicit transaction:** Bir grup işin VTYS programcısı tarafından `transaction`ya da başka bir deyişle `transaction safe` olarak yapılmasıdır. VTYS'lerde bu işlemi gerçekleştirmek için çeşitli cümleler bulunur. 
+>
+>Genel olarak CRUD işlemlerine yönelik cümleler tek başına implicit transaction biçimindedir. Ancak örneğin insert işleminden sonra o veri için belirlenen identity değerinin elde edilmesi işleminin transaction safe yapılması programcının sorumluluğundadır yani explicit transaction olarak yapılmalıdır. Explicit transaction'ın tamamlanması için commit veya roll-back işleminin yapılmış olması gerekir. Aksi durumda transaction devam eder. Tipik  olarak trigger fonksiyonlar implicit transaction biçimindedir. VTYS programcısının ayrıca explicit transaction yapması gerekmez.
