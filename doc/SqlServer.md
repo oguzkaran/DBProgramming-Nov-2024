@@ -1945,5 +1945,105 @@ select * from sensors;
 select * from ports;
 ```
 
+##### Kesişim, Birleşim ve Fark İşlemleri
 
+>Belirli koşullar altında birden fazla sorgu kesişim (intersect), birleşim (union) ve fark (except) işlemlerine sokulabilir. Bu işlemler genel olarak Matematik'teki küme işlemleri ile eşdeğerdir. Bu işlemlerde sorgulardan elde edilen alanların karşılıklı olarak türleri aynı olmak zorundadır. Bu işlemler implicit transaction biçimindedir. Birleşim işlemi iki türlü yapılabilir: union, union all. Union işleminde aynı  olan bir kayıttan bir tane elde edilirken, union all işleminde tümü elde edilir. Bu işlemlerde sorgu sayısının ve sorgunun yapılış biçiminin önemi yoktur. Bu işlemlerde iki verinin aynı olması için karşılıklı alanların değerlerinin aynı olması gerekir.
 
+>Aşağıdaki örneği inceleyiniz
+
+```sql
+use testdb;  
+  
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create procedure sp_insert_person(@citizen_id char(11), @first_name nvarchar(300), @last_name nvarchar(300), @birth_date date)  
+as  
+begin  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.0  
+  
+    if @age < 18  
+        insert into people_younger values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else if @age < 65  
+        insert into people values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else  
+        insert into people_older values(@citizen_id, @first_name, @last_name, @birth_date)  
+end  
+  
+    drop function get_age  
+  
+create function get_age(@birth_date date, @reference_date date)  
+returns real  
+as  
+begin  
+    return datediff(day, @birth_date, @reference_date) / 365.  
+end  
+  
+-- union  
+create function get_all_people()  
+returns table  
+as  
+return  
+(select first_name + ' ' + last_name as full_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people  
+union  
+select first_name + ' ' + last_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people_older  
+union  
+select first_name + ' ' + last_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people_younger)  
+  
+--union all  
+create function get_all()  
+returns table  
+    asreturn  
+(select first_name + ' ' + last_name as full_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people  
+ union all  
+ select first_name + ' ' + last_name as full_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people_older  
+ union all  
+ select first_name + ' ' + last_name as full_name, birth_date, dbo.get_age(birth_date, getdate()) as age from people_younger)  
+  
+  
+--intersect  
+create function get_same_people()  
+returns table  
+as  
+return  
+(select first_name + ' ' + last_name as full_name, birth_date from people  
+intersect  
+select first_name + ' ' + last_name as full_name, birth_date  from people_older  
+intersect  
+select first_name + ' ' + last_name as full_name, birth_date from people_younger)  
+  
+select * from get_all_people()  
+select * from get_same_people()  
+select * from get_all()  
+  
+-- execept  
+select first_name + ' ' + last_name as full_name, birth_date from people  
+except  
+select first_name + ' ' + last_name as full_name, birth_date  from people_older  
+except  
+select first_name + ' ' + last_name as full_name, birth_date from people_younger
+```
+
+##### View
+
+>
