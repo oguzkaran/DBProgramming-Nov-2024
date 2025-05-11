@@ -1927,7 +1927,7 @@ begin
     insert into ports (sensor_id, number) values (@sensor_id, @port)  
     set @status = @@error  
   
-    if @status <> 0  
+    if @status <> 0
         goto END_TRANSACTION  
   
     commit tran--saction  
@@ -2046,4 +2046,66 @@ select first_name + ' ' + last_name as full_name, birth_date from people_younger
 
 ##### View
 
->
+>Aşağıdaki view'ları inceleyiniz. Aşağıdaki örnekte `v_all_people` view'u updatable değildir. `v_babies` view'u updatable bir view'dur. `with chack option` seçeneği ile yaratılmıştır. Bu view'da citizen_id alanı elde edilmeseydi, view'un kendisi updatable olmasına karşın ilgili tabloda `citizen_id` alanı primary key olduğundan boş geçilemez. Dolayısıyla bu view'a veri insert edilemez. Bu view'dan elde edilen alanlar kullanılarak update ve delete işlemleri yapılabilir. Benzer şekilde `v_children `view'unda `datediff(day, birth_date, getdate()) / 365.0 < 18 ` koşulu yazılmasaydı tablonun içerisinde domain anlamında 18 yaşından küçüklerin bulunması zorunluluğu delinebilirdir. Çünkü bu durumda 2 yaşından büyük her kişi bu view üzerinden tabloya eklenebilirdi
+
+```sql
+use testdb;  
+  
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+) 
+  
+create procedure sp_insert_person(@citizen_id char(11), @first_name nvarchar(300), @last_name nvarchar(300), @birth_date date)  
+as  
+begin  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.0  
+  
+    if @age < 18  
+        insert into people_younger values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else if @age < 65  
+        insert into people values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else  
+        insert into people_older values(@citizen_id, @first_name, @last_name, @birth_date)  
+end  
+  
+create view v_all_people  
+as  
+select first_name + ' ' + last_name as full_name, birth_date from people  
+union  
+select first_name + ' ' + last_name as full_name, birth_date  from people_older  
+union  
+select first_name + ' ' + last_name as full_name, birth_date from people_younger 
+  
+select * from v_all_people 
+  
+create view v_babies  
+as  
+select citizen_id, first_name, last_name, birth_date from people_younger where datediff(day, birth_date, getdate()) / 365.0 < 2  
+with check option  
+
+  
+create view v_children  
+as  
+select citizen_id, first_name, last_name, birth_date from people_younger  
+where datediff(day, birth_date, getdate()) / 365.0 >= 2 and datediff(day, birth_date, getdate()) / 365.0 < 18  
+with check option  
+```
+
