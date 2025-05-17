@@ -2109,3 +2109,205 @@ where datediff(day, birth_date, getdate()) / 365.0 >= 2 and datediff(day, birth_
 with check option  
 ```
 
+>**Sınıf Çalışması:** Aşağıdaki tabloları oluşturunuz ve soruları yanıtlayınız
+>customers
+>	- customer_id (p.k)
+>	- first_name
+>	- middle_name
+>	- last_name
+>	- address
+>phones
+>	- phone_number (p.k)
+>	- customer_id (f.k.)
+>phone_invoices
+>	- phone_invoice_id (identity)
+>	- phone_number (f.k.)
+>	- invoice_date
+>	- last_pay_date
+>	- paid_date (nullable)
+>	- total
+>**Sorular:**
+>1. Fatura ödeme merkezinin ödenmemiş tüm faturalara ilişkin bilgilerinin elde edildiği view'u yazınız. View içerisinde müşteri ismi full_name alanı olarak elde edilecektir. full_name alanı içerisindeki bilgilerin yalnızca ilk iki harfleri görünecektir. Örneğin `İlker Deveci` ismi için `İl*** De****` şeklinde ya da örneğin `Mehmet Ali Yeşilkaya` ismi için `Me**** Al* Ye*******` şeklinde görünecektir. 
+>2. Ödenmiş faturaları elde eden bir view yazınız.
+>3. Fatura ödenmemişse fatura ödeme merkezinin ödeme tamamlandığında view ile update yapabileceği bir SP yazınız. 
+>
+
+>**Çözüm:**
+
+```sql
+create database invoicedb;  
+  
+use invoicedb  
+  
+create table customers (  
+    customer_id int identity primary key,  
+    first_name varchar(50) not null,  
+    middle_name varchar(50),  
+    last_name varchar(50) not null,  
+    address varchar(100) not null  
+)  
+  
+create table phones (  
+    phone_number varchar(15) primary key,  
+    customer_id int not null foreign key references customers(customer_id)  
+)  
+  
+create table phone_invoices (  
+    phone_invoice_id int identity primary key,  
+    phone_number varchar(15) not null foreign key references phones(phone_number),  
+    invoice_date date not null,  
+    last_pay_date date not null,  
+    paid_date date,  
+    total money not null  
+)  
+  
+create function hide_text_right(@str nvarchar(max), @count int, @ch char(1))  
+    returns nvarchar(max)  
+begin  
+    if @str is null  
+        return null  
+    return left(@str, @count) + replicate(@ch, len(@str) - @count)  
+end  
+  
+  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(max))  
+    returns nvarchar(max)  
+as  
+begin  
+    declare @full_text nvarchar(max) = '';  
+  
+    if @first is not null  
+        set @full_text = @first;  
+  
+    if @second is not null  
+        begin            if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @second;  
+        end  
+  
+    if @third is not null  
+        begin            if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @third;  
+        end  
+  
+    return @full_text;  
+end  
+  
+  
+-- 1  
+create view v_unpaid_invoices  
+as  
+select  
+    pi.phone_number,  
+    dbo.get_full_text(dbo.hide_text_right(c.first_name, 2, '*'), dbo.hide_text_right(c.middle_name, 2, '*'), dbo.hide_text_right(c.last_name, 2, '*')) as full_name,  
+    pi.invoice_date,  
+    pi.last_pay_date  
+from  
+phone_invoices pi inner join phones p on pi.phone_number = p.phone_number  
+inner join customers c on c.customer_id = p.customer_id where pi.paid_date is null  
+  
+-- 2  
+create view v_paid_invoices  
+as  
+select  
+    pi.phone_number,  
+    dbo.get_full_text(dbo.hide_text_right(c.first_name, 2, '*'), dbo.hide_text_right(c.middle_name, 2, '*'), dbo.hide_text_right(c.last_name, 2, '*')) as full_name,  
+    pi.invoice_date,  
+    pi.last_pay_date  
+from  
+    phone_invoices pi inner join phones p on pi.phone_number = p.phone_number  
+                      inner join customers c on c.customer_id = p.customer_id where pi.paid_date is not null  
+  
+  
+--3  
+create view v_updatable_unpaid_invoices  
+as  
+    select phone_number, invoice_date, paid_date from phone_invoices where paid_date is null 
+with check option 
+  
+  
+create procedure sp_pay_invoice (@phone_number varchar(15), @invoice_date date)  
+as  
+begin  
+    update v_updatable_unpaid_invoices set paid_date = getdate() where phone_number = @phone_number and invoice_date = @invoice_date  
+end  
+  
+  
+-- data and test  
+  
+insert into customers (first_name, middle_name, last_name, address) values ('John', 'Ali', 'Doe', '123 Elm St')  
+insert into customers (first_name, last_name, address) values ('Jane', 'Johnson', '456 Oak St')  
+  
+insert into phones (phone_number, customer_id) values ('123-456-7890', 1)  
+insert into phones (phone_number, customer_id) values ('123-456-7895', 2)  
+  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7890', '2025-01-01', '2025-02-01', null, 100.00)  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7895', '2025-01-01', '2025-02-01', null, 200.00)  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7890', '2025-02-01', '2025-03-01', '2025-02-15', 100.00)  
+  
+select * from customers  
+  
+select * from phones  
+select * from phone_invoices  
+  
+select * from v_unpaid_invoices  
+select * from v_paid_invoices  
+  
+select * from v_updatable_unpaid_invoices  
+  
+update v_updatable_unpaid_invoices set paid_date = getdate() where phone_number = '123-456-7890' and invoice_date = '2025-01-01'  
+  
+exec sp_pay_invoice @phone_number = '123-456-7895', @invoice_date = '2025-01-01'
+```
+
+
+##### Hataların İşlenmesi (Error Handling)
+
+>Aşağıdaki demo örnekte payda için üretilen rassal değer sıfır olduğunda `runtime error` oluşur
+
+```sql
+declare @a int = rand() * 20 - 10  
+declare @b int = rand() * 20 - 10  
+declare @result int  
+  
+select @a, @b  
+  
+set @result = @a / @b  
+  
+select @result
+```
+
+>Akış error bakımında ele alınacaksa (error handling) `begin try ve end try` arasında yazılmalıdır. `begin try ve end try` aralığını `begin catch ve end catch` izlemelidir. Bu durumda error oluşursa akış `begin catch end catch` kodlarına bir daha geri dönmemek üzere (non resumptive) dallanır. Her hangi bir error oluşmazsa akış `begin catch ve end catch` atlanarak eder.
+
+```sql
+begin try  
+    declare @a int = rand() * 20 - 10  
+    declare @b int = rand() * 20 - 10  
+    declare @result int  
+  
+    select @a, @b  
+  
+    set @result = @a / @b  
+  
+    select @result  
+end try  
+begin catch  
+    select 'Denominator can not be zero' as error_message  
+end catch  
+  
+select 'Continue' as continue_message
+```
+
+>`sys.messages` view'unda, kayıtlı olan error'lara ilişkin bazı önemli bilgiler elde edilebilmektedir. Bu view'dan elde edilen alanlar şunlardır:
+>**message_id:** Error'a ilişkin tekil (unique) bir bilgidir.
+>
+>**language_id:** Error'lara yönelik mesajlar pek çok dilde saklanmaktadır. Bu alan dile özgü bir id değeridir. İngilizce dilinin id'si `1033`, Türkçe dilinin id'si `1055` olarak belilenmiştir. 
+>
+>**severity:** Mesajın önem derecesine ilişkin numara bilgisidir. Aşağıdaki tabloda severity numaraları açıklanmıştır
+>
+>**is_event_logged:** Oluşan error'un log'lanıp log'lanmayacağına ilişkin predicate bilgidir
+>
+>**text:** Error'un ilgili dildeki mesajını içeren alandır.
+
+>

@@ -54,6 +54,11 @@
 >
 >Genel olarak CRUD işlemlerine yönelik cümleler tek başına implicit transaction biçimindedir. Ancak örneğin insert işleminden sonra o veri için belirlenen identity değerinin elde edilmesi işleminin transaction safe yapılması programcının sorumluluğundadır yani explicit transaction olarak yapılmalıdır. Explicit transaction'ın tamamlanması için commit veya roll-back işleminin yapılmış olması gerekir. Aksi durumda transaction devam eder. Tipik  olarak trigger fonksiyonlar implicit transaction biçimindedir. VTYS programcısının ayrıca explicit transaction yapması gerekmez.
 
-#### View
+##### View
 
 >VYYS'lerde view sanal tablolardır. Özel bazı durumlar dışında view içerisinde veri tutulmaz. View, bir sorguyu çalıştırarak bilgileri tablo biçiminde verir. View'lar `create view` cümlesi ile yaratılır. Bir view mantıksal olarak parametresiz, tablo döndüren fonksiyon gibidir. Bir view ile bazı şartlar sağladığında insert, delete ve update gibi işlemler de yapılabilmektedir. Bu tip view'lara **updatable view** denir. view içerisindeki sorguda `order by` yapılamaz. Gerekirse view ile elde edilen veriler sorgulanırken `order by` yapılabilir. Updatable bir view'da sorguya ilişkin koşulu sağlayan verinin oluşmaması için `with check option` olarak yaratılması gerekir. Bu durumda view ile yapılan insert, delete ve update gibi işlemleri ile elde edilen veri veya yeni eklenen veri koşula uymak zorundadır. Aksi durumda error oluşur.
+
+##### Hataların İşlenmesi (Error Handling)
+
+>Programlamada çalışma zamanında bazı hatalı durumlar oluşabilmektedir. Bunlara genel olarak **runtime error** veya **exception** terimleri kullanılır. VTYS dilleri yorumlayıcı (interpreter) ile çalıştıklarından sentaks ve semantik hatalar ile çalışma zamanında meydana gelen hatalı durumlar yine çalışma zamanında ele alınır. Sentaks ve semantik hatalar dışında kalan hataların oluşması durumunda programın nasıl devam edeceğine karar verilmesine ilişkin kodların yazılmasına **hataların işlenmesi (error handling)** denilmektedir. Böylesi bir error handle edilmezse ilgili program (script) abnormal bir biçimde sonlanır.
+
