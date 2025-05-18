@@ -2304,10 +2304,106 @@ select 'Continue' as continue_message
 >
 >**language_id:** Error'lara yönelik mesajlar pek çok dilde saklanmaktadır. Bu alan dile özgü bir id değeridir. İngilizce dilinin id'si `1033`, Türkçe dilinin id'si `1055` olarak belilenmiştir. 
 >
->**severity:** Mesajın önem derecesine ilişkin numara bilgisidir. Aşağıdaki tabloda severity numaraları açıklanmıştır
->
+>**severity:** Mesajın önem derecesine ilişkin numara bilgisidir. Aşağıdaki tabloda severity numaralarına ilişkin detaylar açıklanmıştır.
+
+| Numara     | Anlamı                                                | Yakalama Durumu |
+| ---------- | ----------------------------------------------------- | --------------- |
+| `[0, 9]`   | Bilgilendirme mesajı ve yalnızca durum bilgisi        | Yakalanamaz     |
+| `10`       | Bilgilendirme mesajı                                  | Yakalanamaz     |
+| `[11, 16]` | Programcı tarafından handle edilebilirm hatalar       | Yakalanabilir   |
+| `[17, 19]` | Yazılımsal hatalar                                    | Yakalanamaz     |
+| `[20, 24]` | Sistemsel problemler ve ölümcül hatalar (fatal error) | Yakalanamaz     |
+
 >**is_event_logged:** Oluşan error'un log'lanıp log'lanmayacağına ilişkin predicate bilgidir
 >
 >**text:** Error'un ilgili dildeki mesajını içeren alandır.
 
->
+>Aşağıdaki sorguda programcının  handle edebileceği error'lar Türkçe mesajları ile elde edilmektedir
+
+```sql
+select * from sys.messages where severity between 11 and 16 and language_id = 1055
+```
+
+>Error'a ilişkin çeşitli bilgiler ve değerler şu fonksiyonlar ile elde edilebilir: 
+>- **error_number**
+>- **error_procedure**
+>- **error_severity**
+>- **error_line**
+>- **error_state**
+>- **error_message**
+
+```sql
+begin try  
+    declare @a int = rand() * 20 - 10  
+    declare @b int = rand() * 20 - 10  
+    declare @result int  
+  
+    select @a, @b  
+  
+    set @result = @a / @b  
+  
+    select @result  
+end try  
+begin catch  
+    select error_number(), error_message(), error_severity(), error_state(), error_line(), error_procedure()
+end catch  
+  
+select 'Continue' as continue_message
+```
+
+>**Sınıf Çalışması:** Aşağıdaki belirtilen `staff` tablosunda insert işlemi yapılırken oluşan error'lara ilişkin procedure ismi, error number, error message, error severity, error line ve oluşma zamanı bilgilerini `staff_errors`tablosuna ekleyen `sp_insert_staff` isimli SP'yi yazınız:
+
+>staff
+>	- staff_id (identity)
+>	- citizen_id (unique)
+>	- first_name
+>	- last_name
+>	- birth_date
+>	- phone
+
+>**Çözüm:**
+
+```sql
+create table staff (  
+    staff_id int primary key identity(1, 1),  
+    citizen_id char(11) unique not null,  
+    first_name nvarchar(300) not null,  
+    last_name nvarchar(300) not null,  
+    birth_date date not null,  
+    phone char(15) not null,  
+)  
+  
+create table staff_errors (  
+    staff_error_id int primary key identity(1, 1),  
+    procedure_name nvarchar(100) not null,  
+    number int not null,  
+    message nvarchar(max) not null,  
+    severity int not null,  
+    line int not null,  
+    date_time datetime default(sysdatetime()) not null  
+)  
+  
+create procedure sp_insert_staff(@citizen_id char(11), @first_name nvarchar(300), @last_name nvarchar(300), @birth_date date, @phone char(15))  
+as  
+begin  
+    begin  try        insert into staff (citizen_id, first_name, last_name, birth_date, phone) values (@citizen_id, @first_name, @last_name, @birth_date, @phone)  
+    end try  
+    begin catch        insert into staff_errors (procedure_name, number, message, severity, line) values (error_procedure(),error_number(), error_message(), error_severity(), error_line())  
+    end catch  
+end  
+  
+exec sp_insert_staff @citizen_id = '12345678901', @first_name = 'John', @last_name = 'Doe', @birth_date = '1980-01-01', @phone = '1234567890'  
+exec sp_insert_staff @citizen_id = '12345678903', @first_name = 'Jane', @last_name = 'Doe', @birth_date = '1980-01-01', @phone = '1234567890'  
+  
+select * from staff  
+select * from staff_errors
+```
+
+>Error mesajlarına `sys.addmessage`SP'si ile programı kendi tanımladığı error'ları ekleyebilir. Bu durumda eklenene error'a ilişkin mesaj numarası `(50000, 2147483647]` aralığında olması gerekir. Bu aralık dışında verilen numaralar eklenemez, error oluşur.
+
+```sql
+exec  sys.sp_addmessage @msgnum = 50001, @severity = 11, @msgtext = 'CSD Error Message', @with_log = true  
+  
+select * from sys.messages where message_id = 50001;z
+```
+
