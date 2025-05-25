@@ -2407,3 +2407,128 @@ exec  sys.sp_addmessage @msgnum = 50001, @severity = 11, @msgtext = 'CSD Error M
 select * from sys.messages where message_id = 50001;z
 ```
 
+>`raiserror` deyimi ile error fırlatılabilir. raiseerror ile ya `[11, 16]` severity numaraları fırlatılabilir. raiserror ile fırlatılan erro'un numarası genel olarak 50000'dir. 
+
+
+>Aşağıdaki SP'yi ve ilgili kodları inceleyiniz
+
+```sql
+create procedure sp_divide_two_ints(@a int, @b int, @result int out)  
+as  
+begin  
+    if @b = 0  
+        raiserror('Division by zero is not allowed.', 11, 1)  
+    set @result = @a / @b  
+end  
+  
+  
+begin try  
+    declare @result int  
+    declare @a int = rand() * 10 - 5  
+    declare @b int = rand() * 10 - 5  
+  
+    select @result, @a, @b  
+    exec sp_divide_two_ints @a, @b, @result out  
+  
+    select @result  
+end try  
+begin catch  
+    select error_number(), error_message(), error_severity(), error_state(), error_line(), error_procedure()  
+end catch
+```
+
+
+>raiserror işlemi yan etkisi (side effect) bir işlem olduğundan fonksiyon içeriside kullanılamaz. Aşağıdaki fonksiyon tanımlaması geçersizdir.
+
+```sql
+  
+  
+create function divide_two_ints(@a int, @b int)  
+returns int  
+as  
+begin  
+    if @b = 0  
+        raiserror('Division by zero is not allowed.', 11, 1)  
+    return @a / @b  
+end
+```
+
+>SQL Server 2012  ile birlikte `throw` ile 16 severity numaralı herhangi bir error fırlatılabilir. throw deyimi ile fırlatılan error'un numarasının `(50000, 2147483647]` aralığında olması gerekir.
+
+```sql
+create procedure sp_divide_two_ints(@a int, @b int, @result int out)  
+as  
+begin  
+    if @b = 0  
+        throw 50001, 'Division by zero is not allowed.', 1  
+    set @result = @a / @b  
+end  
+  
+  
+begin try  
+    declare @result int  
+    declare @a int = rand() * 10 - 5  
+    declare @b int = rand() * 10 - 5  
+  
+    select @result, @a, @b  
+    exec sp_divide_two_ints @a, @b, @result out  
+  
+    select @result  
+end try  
+begin catch  
+    select error_number(), error_message(), error_severity(), error_state(), error_line(), error_procedure()  
+end catch
+```
+
+>İç içe try deyimleri doğrudan ya da dolaylı olarak olabilmektedir. Bu durumda içteki begin-try, end-try içerisinde bir error oluştuğunda dıştaki begin-catch bu error'u yakalayamaz. Eğer içteki error'un dıştaki begin-catch'de yakalanması istenityorsa yeniden fırlatılması (re-throw) gerekir.
+
+
+```sql
+create procedure sp_divide_two_ints(@a int, @b int, @result int out)  
+as  
+begin  
+    if @b = 0  
+        throw 50001, 'Division by zero is not allowed.', 1  
+    set @result = @a / @b  
+end  
+  
+create procedure sp_select_result(@min int, @bound int)  
+as  
+begin  
+    begin try        declare @a int = rand() * (@bound - @min) + @min  
+        declare @b int = rand() * (@bound - @min) + @min  
+        declare @result int  
+  
+        select @a, @b  
+  
+        if @a = @b  
+            throw 50002, 'The two numbers are equal.', 1  
+  
+        exec sp_divide_two_ints @a, @b, @result out  
+  
+        select @result  
+    end try  
+    begin catch        select error_number(), error_message(), error_severity(), error_state(), error_line(), error_procedure()  
+        if error_number() = 50002  
+            throw  
+    end catchend  
+  
+create procedure sp_do_select  
+as  
+begin  
+    begin try        declare @min int = -5  
+        declare @bound int = 6  
+  
+        exec sp_select_result @min, @bound  
+    end try  
+    begin catch        select 'main:', error_number(), error_message(), error_severity(), error_state(), error_line(), error_procedure()  
+    end catch  
+end  
+  
+  
+exec sp_do_select
+```
+
+##### Döngü Deyimleri
+
+>
