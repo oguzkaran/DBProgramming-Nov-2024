@@ -1711,11 +1711,7 @@ return (select pc.product_category_id,  pc.description, max(p.stock * (p.unit_pr
 
 ##### Triggers
 
->VTYS'lerde insert, delete ve update yapıldığında otomatik olarak devreye girmesini istediğimiz kod parçalarına trigger denir. Bir trigger her ne kadar bir fonksiyon olsa da veritabanı programcısı ya da veritabanına erişen uygulamalar tarafından çağrılamaz. Trigger'lar SQL Server'da iki gruba ayrılır: **instead of trigger, after trigger.** instead of trigger'lar insert, delete veya update işlemlerinden hangisine ilişkinse, o işlem yapılır yapılmaz henüz veritabanına  yansıtılmadan devreye girer. Tipik olarak programcı trigger içerisinde işlemin veritabanına yansıtılıp yansıtılmayacağını belirleyen kodları yazar. Bir trigger'da duruma göre işlemin yapılması yani veritabanına yansıtılması	reddedilebilir. Şüphesiz bu tarz işlemler SP kullanarak da yapılabilir. Bu anlamda hangisinin tercih edileceği domain'e	(yani senaryoya) bağlıdır. After trigger, insert, delete veya update işlemi veritabanına yansıdıktan sonra devreye girer. 
-
-**Anahtar Notlar:** Trigger kullanımında programcının dikkatli olması gerekir. Çünkü trigger tüm kullanıcıları etkileyebilir. Bu durumda programcının örneğin kendi test işlemlerinde de trigger'ı devre dışı bırakması gerekebilir. Ayrıca trigger kodları çok zaman almayacak şekilde yazılmalıdır. Çünkü bir trigger devredeyken, trigger'ın yazıldığı veritabanı elemanı için başka bir işlem araya giremez (transaction safe). Bu da, duruma göre veritabanına erişen uygulamaların yavaş hizmet almasına ve/veya hizmet vermesine yol açabilir.	
-
->instead of trigger'larda işlemin veritabanına yansıtılması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem	veritabanına yansıtılmaz. After trigger'larda ise veritabanına yansımış işlemin geri alınması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem veritabanına yansımış olarak kalır.  
+>Trigger'lar SQL Server'da iki gruba ayrılır: **instead of trigger, after trigger.** instead of trigger'lar insert, delete veya update işlemlerinden hangisine ilişkinse, o işlem yapılır yapılmaz henüz veritabanına  yansıtılmadan devreye girer. Tipik olarak programcı trigger içerisinde işlemin veritabanına yansıtılıp yansıtılmayacağını belirleyen kodları yazar. Bir trigger'da duruma göre işlemin yapılması yani veritabanına yansıtılması	reddedilebilir. Şüphesiz bu tarz işlemler SP kullanarak da yapılabilir. Bu anlamda hangisinin tercih edileceği domain'e	(yani senaryoya) bağlıdır. After trigger, insert, delete veya update işlemi veritabanına yansıdıktan sonra devreye girer. instead of trigger'larda işlemin veritabanına yansıtılması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem	veritabanına yansıtılmaz. After trigger'larda ise veritabanına yansımış işlemin geri alınması trigger içerisinde yapılmalıdır. Aksi durumda ilgili işlem veritabanına yansımış olarak kalır.  
 
 >Bir trigger `create trigger` cümlesi ile yaratılır. Bir trigger içerisinde yapılan işleme ilişkin verilere `inserted` ismi ile erişilir. update trigger için `update` fonksiyonu ile hangi alanın update edildiği sorgulanarak işlem yapılabilir. 
 
@@ -1891,6 +1887,7 @@ insert into people (citizen_id, first_name, last_name, birth_date) values ('1234
 insert into people (citizen_id, first_name, last_name, birth_date) values ('12345678901', 'Jack', 'Doe', '1976-01-01')  
 insert into people (citizen_id, first_name, last_name, birth_date) values ('12345678904', 'Mary', 'Doe', '1934-01-01')
 ```
+
 
 
 ##### Explicit Transaction

@@ -2307,3 +2307,121 @@ as $$
 $$ language plpgsql;
 ```
 
+##### Array Type
+
+>Elemanları aynı türden olan ve bellekte peş peşe olarak yaratılan veri yapılarına **dizi (array)** denir. PostgreSQL'de `array` türü de bulunmaktadır. Bu anlamda dizi için CRUD işlemleri de yapılabilmektedir. Dizi elemanlarına `[]` operatörü ve indeks numarası ile erişilir. Indeks değerleri 1'den başlar. `create table` veya `alter table` cümlesinde dizi türü `<tür ismi> []` biçiminde belirtilir.  Dizi alanına bilgi eklemek için `array` bağlamsal anahtar sözcüğü (contextual keyword) ile birlikte yine `[]` kullanılabilir. Ayrıca bir string literal olarak elemanlar `{}` içerisinde verilebilir. Dizi alanına ilişkin karşılaştırmalarda `any` operatörü kullanılabilir. `any` fonksiyonu operand olarak alan adını alır. Karşılaştırma işleminde any ifadesinin karşılaştırma operatörünün sağında olması gerekir. Aksi durumda error oluşur. update işlemleri için yine `[]` operatörü kullanılabilir. Dizi türü mantıksal olarak `one-to-many` ilişkisine benzetilebilse de teknik olarak aynı değildir.
+
+```sql
+create table sensors (  
+    sensor_id serial primary key,  
+    name varchar(250) not null,  
+    host varchar(250) not null,  
+    ports int [] not null  
+);  
+  
+insert into sensors (name, host, ports) values ('Rain sensor', 'www.csystem.org/sensors/rain', array[50000, 50010, 50020]);  
+insert into sensors (name, host, ports) values ('Humidity sensor', 'www.csystem.org/sensors/humidity', '{3000, 4000, 5000, 6000}');  
+insert into sensors (name, host, ports) values ('MR', 'www.csystem.org/sensors/health/mr', '{3000, 4900}');  
+insert into sensors (name, host, ports) values ('Weather sensor', 'www.csystem.org/sensors/weather', array[5000, 50010, 50020]);  
+  
+-- İlk portu 3000 olan sensörleri listele  
+select * from sensors where ports[1] = 3000;  
+  
+-- 50010 portu olan sensörleri listele  
+select * from sensors where 50010 = any(ports);  
+  
+update sensors set ports[2] = ports[1] + 2 where 50010 = any(ports);  
+  
+select * from sensors;
+```
+
+##### Triggers
+
+>PostgreSQL'de trigger yaratmadan önce trigger olarak kullanılan fonksiyonun yazılması gerekir. Bu fonksiyonun trigger'a geri dönmesi gerekir. trigger fonksiyonu içerisinde `new` ve `old` bağlamsal anahtar sözcükleri sırasıyla yeni veriyi ve eski veriyi temsil eder. Örneğin `before` trigger yazıldığına `old` değerine geri dönülürse işlem tabloya yansımaz, `new`değerine geri dönülürse işlem tabloya yansır. trigger için yazılan fonksiyonun parametre değişkeni olmaz. trigger fonksiyonu yazıldıktan sonra `create trigger` cümlesi ile fonksiyon trigger'a bağlanır. 
+
+
+```sql
+create table devices (  
+     device_id serial primary key,  
+     name varchar(300) not null,  
+     host varchar(300) not null,  
+     port int not null,  
+     latitude real,  
+     longitude real  
+);  
+  
+create or replace function insert_device_before_trigger()  
+returns trigger  
+as  
+$$  
+    declare  
+        port_number int;  
+    begin  
+        port_number = new.port;  
+  
+        if port_number < 1024 or port_number > 65535 then  
+            return old;  
+        end if;  
+  
+        return new;  
+    end;  
+$$ language plpgsql;  
+  
+create or replace trigger t_device_insert_before before insert on devices  
+for each row execute procedure insert_device_before_trigger();  
+  
+insert into devices (name, host, port, latitude, longitude) values ('Rain Sensor', '192.167.2.34', 3000, 40.7128, -74.0060);  
+insert into devices (name, host, port, latitude, longitude) values ('Humidity Sensor', '192.167.2.36', 400, 41.7128, 74.0060);  
+  
+  
+select * from devices;
+```
+
+SSSSSSSSSSSSSSSSSSSSSS
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları hazırlayınız ve ilgili soruyu yanıtlayınız
+>**Tablolar:**
+>- **people**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_younger**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>- **people_older**
+>	- citizen_id char(11)
+>	- first_name nvarchar(300)
+>	- last_name nvarchar(300)
+>	- birth_date date
+>**Sorular:**
+>- insert işlemin yaşı 18'den büyük 65'den küçük olanları `people` tablosuna, 65'den büyük olanları `people_older` tablosuna ve 18'den küçük olanları `people_younger` tablosuna ekleyen instead of trigger'ları yazınız.
+>- Doğum tarihi bilgisinin güncellenmesi durumuna göre kontrol edip gerektiğinde ilgili tabloya veriyi aktaran instead of trigger'ları yazınız
+
+>**Sınıf Çalışması:** Aşağıdaki device'lara ilişkin tablolarda `lattitude` ve `longitude` bilgilerinden herhangi birisi `[-50, 50]` aralığı dışında kalan device'ların `devices` tablosuna yazılmasını engelleyen, bu durumda `devices_ex` tablosuna yazılmasını sağlayan trigger'ları yazınız.
+
+```sql
+create table devices (  
+     device_id int primary key,  
+     name varchar(300) not null,  
+     host varchar(300) not null,  
+     port int not null,  
+     latitude real,  
+     longitude real  
+);  
+  
+create table devices_ex (  
+    device_id int primary key,  
+    name varchar(300) not null,  
+    host varchar(300) not null,  
+    port int not null,  
+    latitude real,  
+    longitude real  
+);
+```
+
+##### Explicit Transaction
+
+>

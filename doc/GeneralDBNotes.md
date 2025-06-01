@@ -35,6 +35,11 @@
 >- **D**elete
 >Aslında CRUD DDL cümleleri için de kullanılabilir. CRUD işlemlerine ilişkin cümleler VTYS'ye göre değişiklik gösterebilir ve çoğunlukla çok kapsamlı cümleler kurulabilmektedir. Hatta Standart SQL'a ilişkin cümlelerin de detayları bulunur. Bunlar bir VTYS'ye özgü olarak ayrıca öğrenilmelidir. 
 
+##### Triggers
+
+>VTYS'lerde insert, delete ve update yapıldığında otomatik olarak devreye girmesini istediğimiz kod parçalarına trigger denir. Bir trigger her ne kadar bir fonksiyon olsa da veritabanı programcısı ya da veritabanına erişen uygulamalar tarafından çağrılamaz. 
+
+**Anahtar Notlar:** Trigger kullanımında programcının dikkatli olması gerekir. Çünkü bir trigger tüm kullanıcıları etkileyebilir. Bu durumda programcının örneğin kendi test işlemlerinde de trigger'ı devre dışı bırakması gerekebilir. Ayrıca trigger kodları çok zaman almayacak şekilde yazılmalıdır. Çünkü bir trigger devredeyken, trigger'ın yazıldığı veritabanı elemanı için başka bir işlem araya giremez (transaction safe). Bu da, duruma göre veritabanına erişen uygulamaların yavaş hizmet almasına ve/veya hizmet vermesine yol açabilir.	
 ##### Database Transaction
 
 >Transaction bir grup işin tek bir iş gibi yapılmasına verilen genel bir isimdir. Transaction genel olarak VTYS içerisindeki işleri temsil eder. Transaction'ın temelde iki tane amacı vardır. 
