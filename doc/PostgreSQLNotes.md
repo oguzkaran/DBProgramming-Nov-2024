@@ -2377,7 +2377,6 @@ insert into devices (name, host, port, latitude, longitude) values ('Humidity Se
 select * from devices;
 ```
 
-SSSSSSSSSSSSSSSSSSSSSS
 
 >**Sınıf Çalışması:** Aşağıdaki tabloları hazırlayınız ve ilgili soruyu yanıtlayınız
 >**Tablolar:**
@@ -2396,9 +2395,122 @@ SSSSSSSSSSSSSSSSSSSSSS
 >	- first_name nvarchar(300)
 >	- last_name nvarchar(300)
 >	- birth_date date
->**Sorular:**
->- insert işlemin yaşı 18'den büyük 65'den küçük olanları `people` tablosuna, 65'den büyük olanları `people_older` tablosuna ve 18'den küçük olanları `people_younger` tablosuna ekleyen instead of trigger'ları yazınız.
->- Doğum tarihi bilgisinin güncellenmesi durumuna göre kontrol edip gerektiğinde ilgili tabloya veriyi aktaran instead of trigger'ları yazınız
+>**Soru:**
+> insert işleminin yaşı 18'den büyük 65'den küçük olanları `people` tablosuna, 65'den büyük olanları `people_older` tablosuna ve 18'den küçük olanları `people_younger` tablosuna ekleyen before trigger'ları yazınız.
+
+>**Çözüm:**
+
+```sql
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+);  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+  
+);  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null  
+);  
+ 
+create or replace function insert_person_before_for_people()  
+returns trigger  
+as $$  
+    declare  
+        years int;  
+        birth_date date;  
+    begin  
+        birth_date = new.birth_date;  
+        years = date_part('year', age(birth_date));  
+  
+        if years < 18 then  
+            insert into people_younger (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+            return old;  
+        end if;  
+  
+        if years < 65 then  
+            return new;  
+        end if;  
+  
+        insert into people_older (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+  
+        return old;  
+    end  
+$$ language plpgsql;  
+  
+  
+create or replace trigger t_insert_person_before_for_people before insert on people  
+for each row execute procedure insert_person_before_for_people();  
+  
+  
+create or replace function insert_person_before_for_people_younger()  
+    returns trigger  
+as $$  
+declare  
+    years int;  
+    birth_date date;  
+begin  
+    birth_date = new.birth_date;  
+    years = date_part('year', age(birth_date));  
+  
+    if years < 18 then  
+        return new;  
+    end if;  
+  
+    if years < 65 then  
+        insert into people (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+        return old;  
+    end if;  
+  
+    insert into people_older (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+  
+    return old;  
+end  
+$$ language plpgsql;  
+  
+  
+create or replace trigger t_insert_person_before_for_people_younger before insert on people_younger  
+    for each row execute procedure insert_person_before_for_people_younger();  
+  
+  
+create or replace function insert_person_before_for_people_older()  
+    returns trigger  
+as $$  
+declare  
+    years int;  
+    birth_date date;  
+begin  
+    birth_date = new.birth_date;  
+    years = date_part('year', age(birth_date));  
+  
+    if years < 18 then  
+        insert into people_younger (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+        return old;  
+    end if;  
+  
+    if years < 65 then  
+        insert into people (citizen_id, first_name, last_name, birth_date) values (new.citizen_id, new.first_name, new.last_name, new.birth_date);  
+        return old;  
+    end if;  
+  
+    return new;  
+end  
+$$ language plpgsql;  
+  
+create or replace trigger t_insert_person_before_for_people_older before insert on people_older  
+    for each row execute procedure insert_person_before_for_people_older();
+```
+
 
 >**Sınıf Çalışması:** Aşağıdaki device'lara ilişkin tablolarda `lattitude` ve `longitude` bilgilerinden herhangi birisi `[-50, 50]` aralığı dışında kalan device'ların `devices` tablosuna yazılmasını engelleyen, bu durumda `devices_ex` tablosuna yazılmasını sağlayan trigger'ları yazınız.
 
@@ -2422,6 +2534,317 @@ create table devices_ex (
 );
 ```
 
-##### Explicit Transaction
+>**Çözüm:**
+
+```sql
+create table devices (  
+    device_id int primary key,  
+    name varchar(300) not null,  
+    host varchar(300) not null,  
+    port int not null,  
+    latitude real,  
+    longitude real  
+);  
+  
+create table devices_ex (  
+    device_id int primary key,  
+    name varchar(300) not null,  
+    host varchar(300) not null,  
+    port int not null,  
+    latitude real,  
+    longitude real  
+);  
+  
+create or replace function insert_device_before_for_devices()  
+returns trigger  
+as  
+$$  
+    begin  
+        if new.latitude < -50 or new.latitude > 50 or new.longitude < -50 or new.longitude > 50 then  
+            insert into devices_ex (device_id, name, host, port, latitude, longitude) values (new.device_id, new.name, new.host, new.port, new.latitude, new.longitude);  
+            return old;  
+        end if;  
+  
+        return new;  
+    end  
+$$ language plpgsql;  
+  
+create trigger t_insert_device_before_for_devices before insert on devices  
+for each row execute procedure insert_device_before_for_devices();  
+  
+create or replace function insert_device_before_for_devices_ex()  
+    returns trigger  
+as  
+$$  
+begin  
+    if -50 <= new.latitude and new.latitude <= 50 and -50 <= new.longitude and new.longitude <= 50 then  
+        insert into devices (device_id, name, host, port, latitude, longitude) values (new.device_id, new.name, new.host, new.port, new.latitude, new.longitude);  
+        return old;  
+    end if;  
+  
+    return new;  
+end  
+$$ language plpgsql;  
+  
+create trigger t_insert_device_before_for_devices_ex before insert on devices_ex  
+    for each row execute procedure insert_device_before_for_devices_ex();  
+  
+  
+select count(*) from devices_ex where longitude < -50 or longitude > 50 or latitude < -50 or latitude > 50;  
+select count(*) from devices where longitude < -50 or longitude > 50 or latitude < -50 or latitude > 50;  
+select count(*) from devices where -50 <= longitude and longitude <= 50 and -50 <= latitude and latitude <= 50;  
+select count(*) from devices_ex where -50 <= longitude and longitude <= 50 and -50 <= latitude and latitude <= 50;
+```
+
+###### Views
+
+>PostgrSQL'de bir view, `create view` veya `create or replace view` cümleleri kullanılarak yaratılabilir. Bir view'a ilişkin elemanlar bir işlemin sonucunda gelmemişse  (yani ilgili olduğu tabloda doğrudan erişilebiliyorsa) `updatable view` denir. Updatable bir view `with check option` seçeneği ile yaratılırsa view'a ilişkin sorgunun koşuluna uygun insert, delete ya da update işlemi yapılabilir.
+
+
+```sql
+create table sensors (  
+    sensor_id serial primary key,  
+    name varchar(250) not null,  
+    host varchar(250) not null,  
+    register_date date default (current_date) not null,  
+    is_active boolean default(true) not null  
+);  
+  
+create table ports (  
+    port_id bigserial primary key,  
+    sensor_id int references sensors(sensor_id) not null,  
+    num int not null  
+);  
+  
+create or replace view v_sensor_info_not_use_well_known_ports  
+as  
+    select * from ports where num >= 1024  
+with check option;  
+  
+  
+create or replace view v_sensors_not_use_well_known_ports  
+as  
+    select s.sensor_id, s.name, s.host, p.num from sensors s inner join ports p on s.sensor_id = p.sensor_id where p.num >= 1024;
+```
+
+
+SSSSSSSSSSS
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+use testdb;  
+  
+create table people (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+  
+create table people_younger (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+)  
+  
+create table people_older (  
+    citizen_id char(11) primary key,  
+    first_name nvarchar(300),  
+    last_name nvarchar(300),  
+    birth_date date  
+) 
+  
+create procedure sp_insert_person(@citizen_id char(11), @first_name nvarchar(300), @last_name nvarchar(300), @birth_date date)  
+as  
+begin  
+    declare @age real = datediff(day, @birth_date, getdate()) / 365.0  
+  
+    if @age < 18  
+        insert into people_younger values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else if @age < 65  
+        insert into people values(@citizen_id, @first_name, @last_name, @birth_date)  
+    else  
+        insert into people_older values(@citizen_id, @first_name, @last_name, @birth_date)  
+end  
+  
+create view v_all_people  
+as  
+select first_name + ' ' + last_name as full_name, birth_date from people  
+union  
+select first_name + ' ' + last_name as full_name, birth_date  from people_older  
+union  
+select first_name + ' ' + last_name as full_name, birth_date from people_younger 
+  
+select * from v_all_people 
+  
+create view v_babies  
+as  
+select citizen_id, first_name, last_name, birth_date from people_younger where datediff(day, birth_date, getdate()) / 365.0 < 2  
+with check option  
+
+  
+create view v_children  
+as  
+select citizen_id, first_name, last_name, birth_date from people_younger  
+where datediff(day, birth_date, getdate()) / 365.0 >= 2 and datediff(day, birth_date, getdate()) / 365.0 < 18  
+with check option  
+```
+
+>**Sınıf Çalışması:** Aşağıdaki tabloları oluşturunuz ve soruları yanıtlayınız
+>customers
+>	- customer_id (p.k)
+>	- first_name
+>	- middle_name
+>	- last_name
+>	- address
+>phones
+>	- phone_number (p.k)
+>	- customer_id (f.k.)
+>phone_invoices
+>	- phone_invoice_id (identity)
+>	- phone_number (f.k.)
+>	- invoice_date
+>	- last_pay_date
+>	- paid_date (nullable)
+>	- total
+>**Sorular:**
+>1. Fatura ödeme merkezinin ödenmemiş tüm faturalara ilişkin bilgilerinin elde edildiği view'u yazınız. View içerisinde müşteri ismi full_name alanı olarak elde edilecektir. full_name alanı içerisindeki bilgilerin yalnızca ilk iki harfleri görünecektir. Örneğin `İlker Deveci` ismi için `İl*** De****` şeklinde ya da örneğin `Mehmet Ali Yeşilkaya` ismi için `Me**** Al* Ye*******` şeklinde görünecektir. 
+>2. Ödenmiş faturaları elde eden bir view yazınız.
+>3. Fatura ödenmemişse fatura ödeme merkezinin ödeme tamamlandığında view ile update yapabileceği bir SP yazınız. 
+>
+
+>**Çözüm:**
+
+```sql
+create database invoicedb;  
+  
+use invoicedb  
+  
+create table customers (  
+    customer_id int identity primary key,  
+    first_name varchar(50) not null,  
+    middle_name varchar(50),  
+    last_name varchar(50) not null,  
+    address varchar(100) not null  
+)  
+  
+create table phones (  
+    phone_number varchar(15) primary key,  
+    customer_id int not null foreign key references customers(customer_id)  
+)  
+  
+create table phone_invoices (  
+    phone_invoice_id int identity primary key,  
+    phone_number varchar(15) not null foreign key references phones(phone_number),  
+    invoice_date date not null,  
+    last_pay_date date not null,  
+    paid_date date,  
+    total money not null  
+)  
+  
+create function hide_text_right(@str nvarchar(max), @count int, @ch char(1))  
+    returns nvarchar(max)  
+begin  
+    if @str is null  
+        return null  
+    return left(@str, @count) + replicate(@ch, len(@str) - @count)  
+end  
+  
+  
+create function get_full_text(@first nvarchar(250), @second nvarchar(250), @third nvarchar(max))  
+    returns nvarchar(max)  
+as  
+begin  
+    declare @full_text nvarchar(max) = '';  
+  
+    if @first is not null  
+        set @full_text = @first;  
+  
+    if @second is not null  
+        begin            if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @second;  
+        end  
+  
+    if @third is not null  
+        begin            if @full_text <> ''  
+                set @full_text = @full_text + ' ';  
+            set @full_text = @full_text + @third;  
+        end  
+  
+    return @full_text;  
+end  
+  
+  
+-- 1  
+create view v_unpaid_invoices  
+as  
+select  
+    pi.phone_number,  
+    dbo.get_full_text(dbo.hide_text_right(c.first_name, 2, '*'), dbo.hide_text_right(c.middle_name, 2, '*'), dbo.hide_text_right(c.last_name, 2, '*')) as full_name,  
+    pi.invoice_date,  
+    pi.last_pay_date  
+from  
+phone_invoices pi inner join phones p on pi.phone_number = p.phone_number  
+inner join customers c on c.customer_id = p.customer_id where pi.paid_date is null  
+  
+-- 2  
+create view v_paid_invoices  
+as  
+select  
+    pi.phone_number,  
+    dbo.get_full_text(dbo.hide_text_right(c.first_name, 2, '*'), dbo.hide_text_right(c.middle_name, 2, '*'), dbo.hide_text_right(c.last_name, 2, '*')) as full_name,  
+    pi.invoice_date,  
+    pi.last_pay_date  
+from  
+    phone_invoices pi inner join phones p on pi.phone_number = p.phone_number  
+                      inner join customers c on c.customer_id = p.customer_id where pi.paid_date is not null  
+  
+  
+--3  
+create view v_updatable_unpaid_invoices  
+as  
+    select phone_number, invoice_date, paid_date from phone_invoices where paid_date is null 
+with check option 
+  
+  
+create procedure sp_pay_invoice (@phone_number varchar(15), @invoice_date date)  
+as  
+begin  
+    update v_updatable_unpaid_invoices set paid_date = getdate() where phone_number = @phone_number and invoice_date = @invoice_date  
+end  
+  
+  
+-- data and test  
+  
+insert into customers (first_name, middle_name, last_name, address) values ('John', 'Ali', 'Doe', '123 Elm St')  
+insert into customers (first_name, last_name, address) values ('Jane', 'Johnson', '456 Oak St')  
+  
+insert into phones (phone_number, customer_id) values ('123-456-7890', 1)  
+insert into phones (phone_number, customer_id) values ('123-456-7895', 2)  
+  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7890', '2025-01-01', '2025-02-01', null, 100.00)  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7895', '2025-01-01', '2025-02-01', null, 200.00)  
+insert into phone_invoices (phone_number, invoice_date, last_pay_date, paid_date, total) values ('123-456-7890', '2025-02-01', '2025-03-01', '2025-02-15', 100.00)  
+  
+select * from customers  
+  
+select * from phones  
+select * from phone_invoices  
+  
+select * from v_unpaid_invoices  
+select * from v_paid_invoices  
+  
+select * from v_updatable_unpaid_invoices  
+  
+update v_updatable_unpaid_invoices set paid_date = getdate() where phone_number = '123-456-7890' and invoice_date = '2025-01-01'  
+  
+exec sp_pay_invoice @phone_number = '123-456-7895', @invoice_date = '2025-01-01'
+```
+
+###### Materialized View
 
 >
