@@ -2627,8 +2627,7 @@ as
     select s.sensor_id, s.name, s.host, p.num from sensors s inner join ports p on s.sensor_id = p.sensor_id where p.num >= 1024;
 ```
 
-
-SSSSSSSSSSS
+SSSSSSSSSSSSSS
 
 >Aşağıdaki demo örneği inceleyiniz
 
@@ -2846,5 +2845,105 @@ exec sp_pay_invoice @phone_number = '123-456-7895', @invoice_date = '2025-01-01'
 ```
 
 ###### Materialized View
+
+>Anımsanacağı gibi view'lar veri tutmazlar. View ile yapılan sorgulama işleminde view'a ilişkin sorgu çalıştırılır. PostgreSQL'de veri tutabilen **materialized view (MV)** vardır. Bu şekilde bir view ile veriye erişim hızlanır. MV'ye ilişkin bir tabloda değişiklik yapıldığında bu doğrudan MV'ye yansımaz. Çünkü MV her defasında sorguyu çalıştırmaz. MV'yi tazelemek için **refresh materialized view** cümlesi kullanılır. MV'ler updatable olamazlar. Yani insert, delete ya da update işlemi ilgili sorgu nasıl olsun yapılamaz. MV'ler çok fazla refresh gerektiği durumlarda tercih edilmemelidir. MV yaratmak için **create materialized view** cümlesi kullanılır. MV yaratırken **with data** seçeneği ile yaratılırsa veri ile birlikte yaratılmış olur. Bu durum bazı sürümlerde default'dur.
+
+```sql
+create table sensors (  
+    sensor_id serial primary key,  
+    name varchar(250) not null,  
+    host varchar(250) not null,  
+    register_date date default (current_date) not null,  
+    is_active boolean default(true) not null  
+);  
+  
+create table ports (  
+    port_id bigserial primary key,  
+    sensor_id int references sensors(sensor_id) not null,  
+    num int not null  
+);  
+  
+create materialized view mv_sensor_info_not_use_well_known_ports  
+as  
+select * from ports where num >= 1024  
+with data;  
+  
+  
+create materialized view mv_sensors_not_use_well_known_ports  
+as  
+select s.sensor_id, s.name, s.host, p.num from sensors s inner join ports p on s.sensor_id = p.sensor_id where p.num >= 1024;  
+  
+refresh materialized view mv_sensors_not_use_well_known_ports;
+```
+
+>**Sınıf Çalışması:** Zoom programına benzer bir program için aşağıdaki tablolara göre ilgili soruyu yanıtlayınız.
+>- users
+>	- email (p.k.)
+>	- password
+>	- register_date_time
+>- meetings
+>	- meeting_id (p.k)
+>	- name
+>	- date_time
+>- user_meetings
+>	- user_meeting_id (p.k)
+>	- user_email (f.k.)
+>	- meeting_id (f.k)
+>	- meeting_entrance_date_time
+>	- meeting_leave_date_time
+>**Soru:** Sorgulanan gün içerisinde meeting'e katılan kişilerin bilgilerini tutan materialized view'u yazınız. User'a ilişkin bilgiler şunlar olmalıdır:
+>- email
+>- name
+>- meeting_entrance_date_time
+>- meeting_leave_date_time
+
+>**Çözüm:**
+
+```java
+create table users(  
+    email varchar(200) primary key,  
+    password varchar(100) not null ,  
+    register_date_time timestamp default(current_timestamp) not null  
+);  
+  
+create table meetings (  
+    meeting_id bigserial primary key,  
+    name varchar(300) not null,  
+    date_time timestamp not null  
+);  
+  
+create table user_meetings (  
+    user_meeting_id bigserial primary key,  
+    user_email varchar(200) references users(email) not null,  
+    meeting_id bigint references meetings(meeting_id) not null,  
+    meeting_entrance_date_time timestamp,  
+    meeting_leave_date_time timestamp  
+);  
+  
+create materialized view mv_today_meetings_user_info  
+as  
+    select u.email, m.name, um.meeting_entrance_date_time, um.meeting_leave_date_time  
+    from  
+    users u inner join user_meetings um on u.email = um.user_email  
+    inner join meetings m on m.meeting_id = um.meeting_id  
+    where  
+    date_part('day', current_date) = date_part('day', um.meeting_entrance_date_time)  
+    and date_part('month', current_date) = date_part('month', um.meeting_entrance_date_time)  
+    and date_part('year', current_date) = date_part('year', um.meeting_entrance_date_time)  
+    with data;  
+  
+create procedure sp_refresh_today_meetings_user_info_view()  
+language plpgsql  
+as $$  
+    begin  
+       refresh materialized view mv_today_meetings_user_info;  
+    end  
+$$;  
+  
+call sp_refresh_today_meetings_user_info_view();  
+select * from mv_today_meetings_user_info;
+```
+
+##### Explicit Transaction
 
 >
