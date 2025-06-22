@@ -2944,6 +2944,240 @@ call sp_refresh_today_meetings_user_info_view();
 select * from mv_today_meetings_user_info;
 ```
 
+
+##### Hataların İşlenmesi
+
+>PostgreSQL'de hataların işlenmesi (exception/error handling) **exception bloğu (exception block)** ile yapılabilir. Exception bloğunda **when deyimi (when statement)** kullanılarak ilgili exception yakalanabilir. Bazı exception durumlarına yönelik `koşul isimleri (condition name)` bulunmaktadır. Her exception'ın `SQLSTATE` denilen bir kodu da bulunur. Bu durumda programcı koşul ismi varsa koşul ise ya da SQLSTATE numarası ile exception handling işlemini yapabilir. Exception bloğunda birden fazla when deyimi kullanılabilir. Bu durumda her exception için ayrı bir işlem yapılabilir
+
+>Aşağıdaki demo örneği inceleyiniz
+
+
+```sql
+do $$  
+    declare  
+        val int;  
+        result double precision;  
+        min int = -10;  
+        bound int = 11;  
+    begin  
+        val = random() * (bound - min) + min;  
+        raise notice '%', val;  
+        result = sqrt(val);  
+        raise notice '%', result;  
+    exception  
+        when sqlstate '2201F' then  
+            raise notice 'negative not allowed %', val;  
+    end;  
+$$
+```
+
+>Bir exception **raise exception** deyimi ile fırlatılabilir. Aslında `raise` deyimi yalnızca exception fırlatmak için kullanılmaz. Anımsanacağı gibi `raise notice` ise stdout'a  mesaj yazdırılabilmektedir. raise deyimi ile bir SQLSTATE kodu fırlatılabilir. Bazı condition name'lar şunlardır:
+>- too_many_rows
+>- unique_violation
+>- no_data_found
+>
+>raise deyimi using ile kullanıldığında deyime ilişkin bir veri de paylaşılabilmektedir. Örneğin
+
+```sql
+raise no_data_found using message = 'Data not found';
+```
+
+>PostgreSQL'de error code'lar ve isimlerine ilişkin link: [error codes (22 Haziran 2025)](https://www.postgresql.org/docs/current/errcodes-appendix.html)
+>
+>raise ile bir exception fırlatıldığında veya sqlstate fırlatıldığında ilgili akış bir daha geri dönmemek üzere (non-resumptive) ilgili bloğu terk eder. Eğer error'u yakalayabilen bir exception bloğu ve bir when deyimi bulunamazsa bu durumda varsa onu kapsayan bloğa ilişkin exception bloğuna bakılır. Hiç yakalanamazsa error oluşur ve script akışı sonlanır (abnormal termination). Eğer akış bir transaction içerisindeyken error oluşursa otomatik rollback işlemi yapılır.
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create or replace function random_int(min int, bound int)  
+returns int  
+as  
+$$  
+    begin  
+        if min >= bound then  
+            raise invalid_parameter_value;  
+        end if;  
+  
+        return random() * (bound - min) + min;  
+    end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_int(10, 10);  
+    exception  
+        when invalid_parameter_value then  
+            raise notice 'invalid values';  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Aşağıda belirtilen `staff` tablosunda ekleme işlemi yapılırken oluşan `unique_violation` ve `not_null_violation` exception'larını zamanı ile birlikte `staff_errors` tablosuna kaydeden `sp_insert_staff` SP'sini yazınız
+>- staff
+>	- staff_id (primary key)
+>	- citizen_id (unique)
+>	- first_name 
+>	- last_name
+>	- birth_date
+>	- register_date
+>	- phone
+>- staff_errors
+>	- staff_error_id (primary key)
+>	- message
+>	- exception_date_time
+
+
+>**Çözüm-1:** condition name'ler ile
+
+```sql
+create table staff (  
+    staff_id serial primary key,  
+    citizen_id char(11) unique not null,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null ,  
+    register_date timestamp default (current_timestamp) not null,  
+    phone char(20) not null  
+);  
+  
+create table staff_errors (  
+    staff_error_id serial primary key,  
+    message varchar(500),  
+    exception_date_time timestamp not null  
+);  
+  
+create or replace procedure sp_insert_staff(char(11), varchar(300), varchar(300), date, char(20))  
+language plpgsql  
+as  
+$$  
+    begin  
+        insert into staff (citizen_id, first_name, last_name, birth_date, phone) VALUES ($1, $2, $3, $4, $5);  
+    exception  
+        when unique_violation then  
+            insert into staff_errors (message, exception_date_time) values ('Unique violation error', current_timestamp);  
+        when not_null_violation then  
+            insert into staff_errors (message, exception_date_time) values ('Not null violation error', current_timestamp);  
+    end;  
+$$;  
+  
+call sp_insert_staff('1234', 'Oğuz', 'Karan', '1976-09-10', '+905325158012');  
+call sp_insert_staff('1234', 'Oğuz', 'Karan', '1976-09-10', null);  
+call sp_insert_staff('12345', 'Deniz', 'Karan', null, '+905325158012');  
+  
+  
+select * from staff;  
+select * from staff_errors;
+```
+
+>**Çözüm-2:** sqlstate kodları ile
+
+```sql
+create table staff (  
+    staff_id serial primary key,  
+    citizen_id char(11) unique not null,  
+    first_name varchar(300) not null,  
+    last_name varchar(300) not null,  
+    birth_date date not null ,  
+    register_date timestamp default (current_timestamp) not null,  
+    phone char(20) not null  
+);  
+  
+create table staff_errors (  
+    staff_error_id serial primary key,  
+    message varchar(500),  
+    exception_date_time timestamp not null  
+);  
+  
+create or replace procedure sp_insert_staff(char(11), varchar(300), varchar(300), date, char(20))  
+language plpgsql  
+as  
+$$  
+    begin  
+        insert into staff (citizen_id, first_name, last_name, birth_date, phone) VALUES ($1, $2, $3, $4, $5);  
+    exception  
+        when sqlstate '23505' then  
+            insert into staff_errors (message, exception_date_time) values ('Unique violation error', current_timestamp);  
+        when sqlstate '23502' then  
+            insert into staff_errors (message, exception_date_time) values ('Not null violation error', current_timestamp);  
+    end;  
+$$;  
+  
+call sp_insert_staff('1234', 'Oğuz', 'Karan', '1976-09-10', '+905325158012');  
+call sp_insert_staff('1234', 'Oğuz', 'Karan', '1976-09-10', null);  
+call sp_insert_staff('12345', 'Deniz', 'Karan', null, '+905325158012');  
+  
+select * from staff;  
+select * from staff_errors;
+```
+
 ##### Explicit Transaction
 
+>PostgreSQL'de diğer bir çok VTYS'da olduğu gibi tüm cümleler `implicit transaction` biçimindedir. Yine explicit transaction commit ve rollback işlemleri olarak yapılabilmektedir. 
 >
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create table categories (  
+    category_id serial primary key,  
+    description varchar(100) not null  
+);  
+  
+insert into categories (description) values ('Food'), ('Drinks'), ('Electronics');  
+  
+create table products (  
+    code varchar(100) primary key,  
+    category_id int references categories(category_id) not null,  
+    name varchar(500) not null,  
+    unit_price double precision not null  
+);  
+  
+create table payments (  
+    payment_id serial primary key,  
+    date timestamp default (current_timestamp) not null  
+);  
+  
+create table payments_to_products (  
+    payment_to_product_id serial primary key,  
+    payment_id int references payments(payment_id) not null,  
+    code varchar(100) references products(code) not null,  
+    amount int not null,  
+    unit_price double precision not null  
+);  
+  
+create procedure sp_insert_product(varchar(100), int, varchar(500), double precision)  
+    language plpgsql  
+as $$  
+begin  
+    insert into products (code, category_id, name, unit_price) values ($1, $2, $3, $4);  
+end;  
+$$;  
+  
+create or replace procedure sp_pay_first(varchar(100), int, double precision)  
+    language plpgsql  
+as $$  
+declare  
+    payment_id int;  
+begin  
+    begin    
+    insert into payments default values;  
+    payment_id = currval('payments_payment_id_seq');  
+    insert into payments_to_products (payment_id, code, amount, unit_price) values (payment_id, $1, $2, $3);  
+    commit;  
+    end;  
+end;  
+$$;  
+  
+create or replace procedure sp_pay(int, varchar(100), int, double precision)  
+    language plpgsql  
+as $$  
+begin  
+    insert into payments_to_products (payment_id, code, amount, unit_price) values ($1, $2, $3, $4);  
+end;  
+$$;  
+  
+  
+call sp_insert_product('LPT-100', 1, 'Laptop', 1000.0);  
+call sp_pay_first('LPT-100', 23, 10.0);
+```
