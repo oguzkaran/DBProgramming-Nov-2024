@@ -1757,7 +1757,6 @@ returns int
 as 
 $$  
 begin  
-    -- Transaction safe yapılacak  
     insert into students (name, birth_date) values ($1, $2);
      
     return currval('students_student_id_seq');  
@@ -3113,10 +3112,115 @@ select * from staff_errors;
 
 ##### Explicit Transaction
 
->PostgreSQL'de diğer bir çok VTYS'da olduğu gibi tüm cümleler `implicit transaction` biçimindedir. Yine explicit transaction commit ve rollback işlemleri olarak yapılabilmektedir. 
->
+>PostgreSQL'de bir explicit transaction begin ile başlatılır. Bir transaction commit veya rollback komutları çalıştırılıncaya kadar devam eder. Bu durumda begin yapıldıktan sonra mutlaka commit ya da rollback yapılmalıdır.  commit ile yapılan değişiklikler kalıcı hale gelir. rollback ile transaction içerisindeki henüz kalıcı hale getirilmemiş değişiklikler geri alınır. savepoint komutu ile parçalı rollback yapılabilir. Yani bir grup iş transaction devam ederken save edilebilir. Bu, commit işleminden farklıdır. commit ile transaction bitirilir, savepoint ile transaction devam ederken bir grup iş kaydedilmiş olur. savepoint işleminde bir isim belirlenir ve istenilen bir noktada rollback to komutu ile savepoint ismine rollback yapılabilir. Bu işlem aslında ne tam bir rollback ne de tam bir commit işlemidir. Transaction halen devam etmektedir ve bir hata oluşursa yalnızca ilgili noktaya dönülmüş olur.  Yani bir savepoint	varsa bu durumda rollback yapılsa bile transaction bitirilmez. rollback to veya commit yapılarak transaction bitirilebilir. Bir transaction içerisinde bir error oluşursa transaction durdurulur ve yapılmış işlemler otomatik olarak geri alınır. İşte yapılan işlemlerin belirli bir noktadan itibaren geriye alınamaması için savepoint kullanılır.
 
 >Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create table clients (  
+    client_id bigserial primary key,  
+    citizen_id varchar(100) not null,  
+    first_name varchar(200) not null,  
+    last_name varchar(200) not null  
+);  
+  
+create table accounts (  
+    account_id bigserial primary key,  
+    client_id bigint references clients(client_id) not null,  
+    amount numeric not null  
+);  
+  
+create or replace procedure sp_transfer_money(bigint, bigint, numeric)  
+language plpgsql  
+as $$  
+    declare  
+        rem_amount numeric;  
+    begin  
+        if $1 = $2 then  
+            raise notice 'Same accounts';  
+            raise transaction_rollback;  
+        end if;  
+        raise notice 'Different accounts';  
+        select amount from accounts where accounts.account_id = $1 into rem_amount;  
+        if rem_amount < $3 then  
+            raise notice 'No enough money to transfer';  
+            raise transaction_rollback;  
+        end if;  
+        update accounts set amount = amount - $3 where account_id = $1;  
+        update accounts set amount = amount + $3 where account_id = $2;  
+        raise notice 'Money transferred';  
+    exception  
+        when transaction_rollback then rollback;  
+    end;  
+$$;  
+  
+  
+insert into clients (citizen_id, first_name, last_name) values ('12345678', 'Ali', 'Serçe');  
+  
+insert into clients (citizen_id, first_name, last_name) values ('12345679', 'Kaan', 'Aslan');  
+insert into clients (citizen_id, first_name, last_name) values ('12345679', 'Oğuz', 'Karan');  
+  
+select * from clients;  
+  
+insert into accounts (client_id, amount) values (1, 100);  
+insert into accounts (client_id, amount) values (2, 300);  
+  
+  
+call sp_transfer_money(1, 1, 250);  
+call sp_transfer_money(1, 2, 50);  
+call sp_transfer_money(1, 2, 1250);  
+  
+select * from accounts;
+```
+
+>Aşağıdaki demo örneği inceleyiniz (Örneği postgresql ile yazınız)
+
+```sql
+create table sensors (  
+    sensor_id int primary key identity(1, 1),  
+    name nvarchar(250) not null,  
+    host nvarchar(100) not null,  
+)  
+  
+create table ports (  
+    sensor_id int foreign key references sensors(sensor_id) not null,  
+    number int check(0 < number and number < 65536) not null,  
+    constraint sensor_port_pk primary key(sensor_id, number)  
+)  
+  
+create procedure sp_insert_sensor_with_port(@name nvarchar(250), @host nvarchar(100), @port int)  
+as  
+begin  
+    declare @status int = 0  
+  
+    begin tran--saction  
+    insert into sensors (name, host) values (@name, @host)  
+  
+    declare @sensor_id int = @@identity  
+  
+    insert into ports (sensor_id, number) values (@sensor_id, @port)  
+    set @status = @@error  
+  
+    if @status <> 0
+        goto END_TRANSACTION  
+  
+    commit tran--saction  
+END_TRANSACTION:  
+    if @status <> 0  
+        rollback tran--saction  
+end  
+  
+exec sp_insert_sensor_with_port 'rain', 'csystem.org/sensors/rain', 4500  
+exec sp_insert_sensor_with_port 'weather', 'csystem.org/sensors/weather', 450  
+exec sp_insert_sensor_with_port 'humidity', 'csystem.org/sensors/humidity', -450  
+exec sp_insert_sensor_with_port 'traffic', 'csystem.org/sensors/traffic', 450  
+  
+select * from sensors;  
+select * from ports;
+```
+
+>Aşağıdaki demo örneği inceleyiniz
+
 
 ```sql
 create table categories (  
@@ -3147,7 +3251,7 @@ create table payments_to_products (
 );  
   
 create procedure sp_insert_product(varchar(100), int, varchar(500), double precision)  
-    language plpgsql  
+language plpgsql  
 as $$  
 begin  
     insert into products (code, category_id, name, unit_price) values ($1, $2, $3, $4);  
@@ -3155,17 +3259,15 @@ end;
 $$;  
   
 create or replace procedure sp_pay_first(varchar(100), int, double precision)  
-    language plpgsql  
+language plpgsql  
 as $$  
 declare  
     payment_id int;  
 begin  
-    begin    
+    -- Must be transaction safe  
     insert into payments default values;  
     payment_id = currval('payments_payment_id_seq');  
     insert into payments_to_products (payment_id, code, amount, unit_price) values (payment_id, $1, $2, $3);  
-    commit;  
-    end;  
 end;  
 $$;  
   
