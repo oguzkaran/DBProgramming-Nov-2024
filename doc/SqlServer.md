@@ -1409,7 +1409,7 @@ end
 create table sensors (  
     sensor_id int primary key identity(1, 1),  
     name nvarchar(250) not null,  
-    host nvarchar(100) not null,  
+    host nvarchar(100) not null  
 )  
   
 create table ports (  
@@ -1902,7 +1902,7 @@ insert into people (citizen_id, first_name, last_name, birth_date) values ('1234
 create table sensors (  
     sensor_id int primary key identity(1, 1),  
     name nvarchar(250) not null,  
-    host nvarchar(100) not null,  
+    host nvarchar(100) not null  
 )  
   
 create table ports (  

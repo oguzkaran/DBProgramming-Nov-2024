@@ -3173,54 +3173,46 @@ call sp_transfer_money(1, 2, 1250);
 select * from accounts;
 ```
 
->Aşağıdaki demo örneği inceleyiniz (Örneği postgresql ile yazınız)
+>Aşağıdaki demo örneği inceleyiniz.
 
 ```sql
 create table sensors (  
-    sensor_id int primary key identity(1, 1),  
-    name nvarchar(250) not null,  
-    host nvarchar(100) not null,  
-)  
+    sensor_id serial primary key,  
+    name varchar(250) not null,  
+    host varchar(100) not null  
+);  
   
-create table ports (  
-    sensor_id int foreign key references sensors(sensor_id) not null,  
-    number int check(0 < number and number < 65536) not null,  
-    constraint sensor_port_pk primary key(sensor_id, number)  
-)  
+create table ports(  
+    sensor_id int references sensors (sensor_id) not null,  
+    number    int check (0 < number and number < 65536) not null,  
+    constraint sensor_port_pk primary key (sensor_id, number)  
+);  
   
-create procedure sp_insert_sensor_with_port(@name nvarchar(250), @host nvarchar(100), @port int)  
-as  
-begin  
-    declare @status int = 0  
+create procedure sp_insert_sensor_with_port(varchar(250), varchar(100), int)  
+language plpgsql  
+as $$  
+    declare  
+        sid int;  
+    begin  
+        insert into sensors (name, host) values ($1, $2);  
+        sid = currval('sensors_sensor_id_seq');  
+        insert into ports (sensor_id, number) values (sid, $3);  
+    exception  
+        when others then rollback;  
+    end  
+$$;  
   
-    begin tran--saction  
-    insert into sensors (name, host) values (@name, @host)  
   
-    declare @sensor_id int = @@identity  
-  
-    insert into ports (sensor_id, number) values (@sensor_id, @port)  
-    set @status = @@error  
-  
-    if @status <> 0
-        goto END_TRANSACTION  
-  
-    commit tran--saction  
-END_TRANSACTION:  
-    if @status <> 0  
-        rollback tran--saction  
-end  
-  
-exec sp_insert_sensor_with_port 'rain', 'csystem.org/sensors/rain', 4500  
-exec sp_insert_sensor_with_port 'weather', 'csystem.org/sensors/weather', 450  
-exec sp_insert_sensor_with_port 'humidity', 'csystem.org/sensors/humidity', -450  
-exec sp_insert_sensor_with_port 'traffic', 'csystem.org/sensors/traffic', 450  
+call sp_insert_sensor_with_port('rain', 'csystem.org/sensors/rain', 4500);  
+call sp_insert_sensor_with_port('weather', 'csystem.org/sensors/weather', 450);  
+call sp_insert_sensor_with_port('humidity', 'csystem.org/sensors/humidity', -450);  
+call sp_insert_sensor_with_port('traffic', 'csystem.org/sensors/traffic', 450);  
   
 select * from sensors;  
 select * from ports;
 ```
 
->Aşağıdaki demo örneği inceleyiniz
-
+>Aşağıdaki demo örneği inceleyiniz.
 
 ```sql
 create table categories (  
@@ -3264,15 +3256,16 @@ as $$
 declare  
     payment_id int;  
 begin  
-    -- Must be transaction safe  
     insert into payments default values;  
     payment_id = currval('payments_payment_id_seq');  
     insert into payments_to_products (payment_id, code, amount, unit_price) values (payment_id, $1, $2, $3);  
+exception  
+    when others then rollback;  
 end;  
 $$;  
   
 create or replace procedure sp_pay(int, varchar(100), int, double precision)  
-    language plpgsql  
+language plpgsql  
 as $$  
 begin  
     insert into payments_to_products (payment_id, code, amount, unit_price) values ($1, $2, $3, $4);  
@@ -3283,3 +3276,129 @@ $$;
 call sp_insert_product('LPT-100', 1, 'Laptop', 1000.0);  
 call sp_pay_first('LPT-100', 23, 10.0);
 ```
+
+##### Döngü Deyimleri
+
+>Bir işin yinelemeli olarak yapılmasını sağlayan kontrol deyimlerine **döngü deyimleri (loop statements)** denir. PostgreSQL'de döngü deyimleri neredeyse uygulama geliştirmede kullanılan popüler programlama dilleri kadar çeşitlidir. 
+
+###### loop Deyimi
+
+>loop deyimi ile döngü oluşturulabilir. loop ile oluşturulan bir döngü `end loop` ile bitirilmelidir. Bir döngü `exit when` deyimi ile sonladırılabilir. Tipik olarak `loop` deyimi `exit when` ile sonlandırılır. `exit when` deyimi bir koşul ifadesi ister ve koşul ifadesi gerçeklendiğinde (doğru olduğunda) döngü sonlanır ve akış bir sonraki deyimden devam eder. `loop` deyimi `exit when` ile kullanıldığında `Bir koşul gerçekleşene kadar dönen döngü deyimi` olarak düşünülmelidir. 
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+do $$  
+    declare  
+        i int = 1;  
+        n int = 5;  
+    begin  
+        loop            raise notice '%', i;  
+            exit when i = n;  
+            i = i + 1;  
+        end loop;  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı bir yazı ve bir karakter için, yazının içerisinde o karakterden kaç tane olduğu bilgisine geri dönen `count_char` isimli fonksiyonu yazınız
+
+>**Çözüm:**
+
+```sql
+create or replace function char_at(str varchar, idx int)  
+returns char(1)  
+as  
+$$  
+    begin  
+        return substr(str, idx, 1);  
+    end;  
+$$ language plpgsql;  
+  
+create or replace function count_char(str varchar, ch char(1))  
+returns int  
+as  
+$$  
+declare  
+    i int = 1;  
+    count int = 0;  
+    len int = length(str);  
+begin  
+    loop        
+	    if char_at(str, i) = ch then  
+            count = count + 1;  
+        end if;  
+        exit when i = len;  
+        i = i + 1;  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_char('ankara', 'a');  
+        raise notice '%', count_char('ankara', 't');  
+    end;  
+$$
+```
+
+
+>**Sınıf Çalışması:** Parametresi ile aldığı iki yazıdan birincisi içerisinde ikincisinden kaç tane olduğu bilgisine geri dönen `count_string` isimli fonksiyonu yazınız. Örneğin `aaa yazısı içerisinde aa yazısından 2 tane vardır`
+>**İpucu:** position fonksiyonunu kullanabilirsiniz
+>`count_string` fonksiyonun case-insensitive olarak işlem yapan `count_string_ignore_case` fonksiyonunu da yazınız.
+
+>**Çözüm:**
+
+```sql
+create or replace function count_string(s1 text, s2 text)  
+returns int  
+as  
+$$  
+declare  
+    pos int;  
+    count int = 0;  
+    str text = $1;  
+    len int = length(str);  
+begin  
+    loop        
+	    pos = position($2 in str);  
+        exit when pos = 0;  
+        count = count + 1;  
+        pos = pos + 1;  
+        str = substr(str, pos, len);  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+create or replace function count_string_ignore_case(s1 text, s2 text)  
+returns int  
+as  
+$$  
+begin  
+    return count_string(lower(s1), lower(s2));  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_string('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string('aaa', 'aa');  
+        raise notice '%', count_string('aaa', 'Aa');  
+        raise notice '///////////////////////';  
+        raise notice '%', count_string_ignore_case('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string_ignore_case('aaa', 'aa');  
+        raise notice '%', count_string_ignore_case('aaa', 'Aa');  
+    end;  
+$$
+```
+
+##### while Deyimi
+
+>
