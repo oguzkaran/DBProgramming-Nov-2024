@@ -3293,7 +3293,8 @@ do $$
         i int = 1;  
         n int = 5;  
     begin  
-        loop            raise notice '%', i;  
+        loop            
+	        raise notice '%', i;  
             exit when i = n;  
             i = i + 1;  
         end loop;  
@@ -3400,5 +3401,308 @@ $$
 ```
 
 ###### while Deyimi
+
+>Bu döngü deyiminde, belirlenen koşul gerçeklendiği sürece yineleme işlemi yapılır. Akış while döngü deyimine geldiğinde koşul kontrolü yapılır, duruma göre yani koşul gerçeklenmezse döngüye girilmeyebilir.
+
+>Aşağıdaki demo örneği inceleyiniz
+
+```sql
+do $$  
+    declare  
+        i int = 1;  
+        n int = 5;  
+    begin  
+        while i <= n  
+        loop  
+            raise notice '%', i;  
+            i = i + 1;  
+        end loop;  
+    end;  
+$$
+```
+
+
+>**Sınıf Çalışması:** Parametresi ile aldığı bir yazı ve bir karakter için, yazının içerisinde o karakterden kaç tane olduğu bilgisine geri dönen `count_char` isimli fonksiyonu yazınız
+
+>**Çözüm:**
+
+```sql
+create or replace function char_at(str varchar, idx int)  
+    returns char(1)  
+as  
+$$  
+begin  
+    return substr(str, idx, 1);  
+end;  
+$$ language plpgsql;  
+  
+create or replace function count_char(str varchar, ch char(1))  
+    returns int  
+as  
+$$  
+declare  
+    i int = 1;  
+    count int = 0;  
+    len int = length(str);  
+begin  
+    while i <= len  
+    loop  
+        if char_at(str, i) = ch then  
+            count = count + 1;  
+        end if;  
+        i = i + 1;  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_char('ankara', 'a');  
+        raise notice '%', count_char('ankara', 't');  
+    end;  
+$$
+```
+
+
+>**Sınıf Çalışması:** Parametresi ile aldığı iki yazıdan birincisi içerisinde ikincisinden kaç tane olduğu bilgisine geri dönen `count_string` isimli fonksiyonu yazınız. Örneğin `aaa yazısı içerisinde aa yazısından 2 tane vardır`
+>**İpucu:** position fonksiyonunu kullanabilirsiniz
+>`count_string` fonksiyonun case-insensitive olarak işlem yapan `count_string_ignore_case` fonksiyonunu da yazınız.
+
+>**Çözüm:**
+
+>Çözümün while döngüsü yerine klasik loop ile yapılışının daha okunabilir/algılanabilir olduğuna dikkat ediniz. Aşağıdaki çözüm while döngüsü için örnek olması amacıyla yazılmıştır.
+
+```sql
+create or replace function count_string(s1 text, s2 text)  
+    returns int  
+as  
+$$  
+declare  
+    pos int;  
+    count int = 0;  
+    str text = $1;  
+    len int = length(str);  
+begin  
+    pos = position($2 in str);  
+    while pos <> 0  
+    loop  
+        count = count + 1;  
+        pos = pos + 1;  
+        str = substr(str, pos, len);  
+        pos = position($2 in str);  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+create or replace function count_string_ignore_case(s1 text, s2 text)  
+    returns int  
+as  
+$$  
+begin  
+    return count_string(lower(s1), lower(s2));  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_string('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string('aaa', 'aa');  
+        raise notice '%', count_string('aaa', 'Aa');  
+        raise notice '///////////////////////';  
+        raise notice '%', count_string_ignore_case('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string_ignore_case('aaa', 'aa');  
+        raise notice '%', count_string_ignore_case('aaa', 'Aa');  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli fonksiyonu yazınız.
+
+**Çözüm:**
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+    begin  
+        return floor(random() * (bound - origin) + origin);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function sum_random(count int, origin int, bound int)  
+returns int  
+as  
+$$  
+    declare  
+        i int = 1;  
+        total int = 0;  
+        value int;  
+    begin  
+        while i <= count  
+        loop  
+            value = random_value(origin, bound);  
+            -- raise notice '%', value;  
+            total = total + value;  
+            i = i + 1;  
+        end loop;  
+  
+        return total;  
+    end  
+$$ language plpgsql;  
+  
+do $$  
+    begin  
+        raise notice 'Total:%', sum_random(4, 0, 100);  
+    end  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `n` tamsayı değeri için n tane rassal olarak üretilmiş İngilizce karakterlerden oluşan yazıya geri dönen `random_text_en` ve n tane rassal olarak üretilmiş Türkçe karakterlerden oluşan yazıya geri dönen `random_text_tr` isimli fonksiyonları yazınız.
+
+>**Çözüm:**
+
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function char_at(str varchar, idx int)  
+returns char(1)  
+as  
+$$  
+begin  
+    return substr(str, idx, 1);  
+end;  
+$$ language plpgsql;  
+  
+create or replace function random_text(n int, srcTxt varchar)  
+returns varchar  
+as  
+$$  
+declare  
+    i int = 1;  
+    result varchar = '';  
+    idx int;  
+    srcLen int = length(srcTxt);  
+begin  
+    while i <= n  
+    loop  
+        idx = random_value(1, srcLen + 1);  
+        result = result || char_at(srcTxt, idx);  
+        i = i + 1;  
+    end loop;  
+    return result;  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_text_en(n int)  
+returns varchar  
+as  
+$$  
+    begin  
+        return random_text(n, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');  
+    end  
+$$ language plpgsql;  
+  
+  
+create or replace function random_text_tr(n int)  
+returns varchar  
+as  
+$$  
+    begin  
+        return random_text(n, 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvxyz');  
+    end  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_text(10, '1234567890-_?*');  
+        raise notice '%', random_text_en(10);  
+        raise notice '%', random_text_tr(10);  
+    end  
+$$
+```
+
+>Buradaki `random_text` fonksiyonunun aşağıdaki gibi bir demo örnekte kullanılabileceğine dikkat ediniz. Şifre üretimine ilişkin güvenlik (security) detayları göz ardı edilmiştir.
+
+```sql
+create table user_info (  
+    username varchar(50) primary key,  
+    password varchar(8) default(random_text(8, '1234567890-_?*')) not null,  
+    first_name varchar(100) not null,  
+    second_name varchar(100) not null,  
+    birth_date date not null,  
+    register_date_time timestamp default(current_timestamp) not null  
+);
+
+insert into user_info (username, first_name, second_name, birth_date) values ('oguzkaran', 'Oğuz', 'Karan', '1976-09-10');
+```
+
+>`random_text_en` fonksiyonu için İngilizce alfabedeki karakterlerin hangi karakter tablosu kullanılırsa kullanılsın yerlerinin standart olması dolayısıyla aşağıdaki gibi bir implementasyon yapılabilir.
+
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_bool()  
+returns bool  
+as  
+$$  
+begin  
+    return random_value(0, 2) = 1;  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_text_en(n int)  
+returns varchar  
+as  
+$$  
+    declare  
+        i int = 1;  
+        result varchar = '';  
+        idx int;  
+    begin  
+        while i <= n  
+        loop  
+            idx = random_value(0, 26);  
+            if random_bool() then  
+                result = result || chr(ascii('A') + idx);  
+            else  
+                result = result || chr(ascii('a') + idx);  
+            end if;  
+            i = i + 1;  
+        end loop;  
+        return result;  
+    end  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_text_en(10);  
+    end  
+$$
+```
+
+##### for Döngü Deyimi
 
 >
