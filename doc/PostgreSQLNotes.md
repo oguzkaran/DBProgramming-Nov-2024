@@ -3705,4 +3705,334 @@ $$
 
 ##### for Döngü Deyimi
 
+>`for` neredeyse tüm programlama dillerinde bir döngü deyimidir. PostgreSQL'de for döngü deyimi modern ve yüksek seviyeli pek çok programlama dillerinin hemen hepsinde bulunan `for-each/range based loop` döngü deyimidir. Ayrıca PostgreSQL'de genel olarak bu döngü deyiminde kullanılan `range operator` bulunur. Bu operatöre ilişkin atom `..` biçimindedir. Bu operatör birinci ve ikinci operandı arasındaki değerleri default olarak birer birer artacak şekilde üretir. 
+
+```sql
+do $$  
+    declare 
+        n int = 5;  
+    begin  
+        for i in 1..n  
+        loop  
+            raise notice '%', i;  
+        end loop;  
+    end;  
+$$
+```
+
+
+>for döngü deyiminde by cümlesi ile artım miktarı belirlenebilir. by cümlesi kullanılmazsa artım birer birer yapılır
+
+```sql
+do $$  
+    declare
+        n int = 5;  
+    begin  
+        for i in 1..n by 2  
+        loop  
+            raise notice '%', i;  
+        end loop;  
+    end;  
+$$
+```
+
+
+>**Sınıf Çalışması:** Parametresi ile aldığı bir yazı ve bir karakter için, yazının içerisinde o karakterden kaç tane olduğu bilgisine geri dönen `count_char` isimli fonksiyonu yazınız
+
+>**Çözüm:**
+
+```sql
+create or replace function char_at(str varchar, idx int)  
+    returns char(1)  
+as  
+$$  
+begin  
+    return substr(str, idx, 1);  
+end;  
+$$ language plpgsql;  
+  
+create or replace function count_char(str varchar, ch char(1))  
+returns int  
+as  
+$$  
+declare  
+    count int = 0;  
+begin  
+    for i in 1..length(str)  
+    loop  
+        if char_at(str, i) = ch then  
+            count = count + 1;  
+        end if;  
+  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_char('ankara', 'a');  
+        raise notice '%', count_char('ankara', 't');  
+    end;  
+$$
+```
+
+>for döngü deyiminde döngü değişkeni kullanılmak istenmiyorsa `_` karakteri kullanılabilir. Bu durumda bu değişken pas geçiliyor anlamı oluşur
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli fonksiyonu yazınız.
+
+**Çözüm:**
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function sum_random(count int, origin int, bound int)  
+returns int  
+as  
+$$  
+declare  
+    total int = 0;  
+    value int;  
+begin  
+    for _ in 1..count  
+    loop  
+        value = random_value(origin, bound);  
+        raise notice '%', value;  
+        total = total + value;  
+  
+    end loop;  
+  
+    return total;  
+end  
+$$ language plpgsql;  
+  
+do $$  
+    begin  
+        raise notice 'Total:%', sum_random(4, 0, 100);  
+    end  
+$$
+```
+
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `n` tamsayı değeri için n tane rassal olarak üretilmiş İngilizce karakterlerden oluşan yazıya geri dönen `random_text_en` ve n tane rassal olarak üretilmiş Türkçe karakterlerden oluşan yazıya geri dönen `random_text_tr` isimli fonksiyonları yazınız.
+
+>**Çözüm:**
+
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function char_at(str varchar, idx int)  
+returns char(1)  
+as  
+$$  
+begin  
+    return substr(str, idx, 1);  
+end;  
+$$ language plpgsql;  
+  
+create or replace function random_text(n int, srcTxt varchar)  
+returns varchar  
+as  
+$$  
+    declare  
+        result varchar = '';  
+        idx int;  
+        srcLen int = length(srcTxt);  
+    begin  
+        for _ in 1..n  
+        loop  
+            idx = random_value(1, srcLen + 1);  
+            result = result || char_at(srcTxt, idx);  
+        end loop;  
+        return result;  
+    end  
+$$ language plpgsql;  
+  
+create or replace function random_text_en(n int)  
+    returns varchar  
+as  
+$$  
+begin  
+    return random_text(n, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');  
+end  
+$$ language plpgsql;  
+  
+  
+create or replace function random_text_tr(n int)  
+    returns varchar  
+as  
+$$  
+begin  
+    return random_text(n, 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvxyz');  
+end  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_text(10, '1234567890-_?*');  
+        raise notice '%', random_text_en(10);  
+        raise notice '%', random_text_tr(10);  
+    end  
+$$
+```
+
+`random_text_en` fonksiyonu için İngilizce alfabedeki karakterlerin hangi karakter tablosu kullanılırsa kullanılsın yerlerinin standart olması dolayısıyla aşağıdaki gibi bir implementasyon yapılabilir.
+
+```sql
+create or replace function random_value(origin int, bound int)  
+    returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_bool()  
+    returns bool  
+as  
+$$  
+begin  
+    return random_value(0, 2) = 1;  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_text_en(n int)  
+    returns varchar  
+as  
+$$  
+    declare  
+        result varchar = '';  
+        idx int;  
+    begin  
+        for _ in 1..n  
+        loop  
+            idx = random_value(0, 26);  
+            if random_bool() then  
+                result = result || chr(ascii('A') + idx);  
+            else  
+                result = result || chr(ascii('a') + idx);  
+            end if;  
+        end loop;  
+        return result;  
+    end  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_text_en(10);  
+    end  
+$$
+```
+
+>for döngü deyimi ile tablo döndüren bir fonksiyon yazılabilir. Bu durumda döngü değişkeninin bir `record` türünden döngü deyimi öncesinde bildirilmesi gerekir.
+
+>**Sınıf Çalışması:** Aşağıdaki tabloyu hazırlayınız ve ilgili soruları yanıtlayınız
+>employees
+>	- citizen_id char(11) p.k.
+>	- first_name varchar(250) not null
+>	- middle_name varchar(250)
+>	- last_name varchar(250) not null
+>	- marital_status int
+>**Sorular:**
+>1. Parametresi ile aldığı int türden medeni durum bilgisine göre yazı olarak `Evli, Bekar, Boşanmış veya Belirsiz` yazılarından birisine geri dönen `get_marital_status_text_tr` fonksiyonunu yazınız. Burada sıfır Evli, 1 Bekar, 2, Boşanmış ve diğer değerler de Belirsiz anlamında kullanılacaktır.
+>2. Parametresi ile aldığı 3 tane yazıyı aralarına space karakteri koyarak, ancak `null` olanları yazıya eklemeyecek şekilde toplam yazıya dönen `get_full_text` fonksiyonunu yazınız.
+>3. Parametresi ile aldığı `citizen_id` bilgisine göre ismin tamamını (full_name), marital_status_text bilgisini tablo olarak döndüren `get_employee_by_citizen_id`fonksiyonunu yazınız.
+
+
+```sql
+create table employees (  
+    citizen_id char(11) primary key,  
+    first_name varchar(250) not null,  
+    middle_name varchar(250),  
+    last_name varchar(250) not null,  
+    marital_status int  
+);  
+  
+create or replace function get_marital_status_text_tr(status int)  
+returns varchar(20)  
+as  
+$$  
+declare  
+    status_str varchar(20);  
+begin  
+    if status = 0 then  
+        status_str = 'Evli';  
+    elseif status = 1 then  
+        status_str = 'Bekar';  
+    elseif status = 2 then  
+        status_str = 'Boşanmış';  
+    else  
+        status_str = 'Belirsiz';  
+    end if;  
+  
+    return status_str;  
+end;  
+$$ language plpgsql;  
+  
+create or replace function get_full_text(varchar, varchar, varchar)  
+    returns varchar  
+as  
+$$  
+declare  
+    full_text varchar = '';  
+begin  
+    if $1 is not null then  
+        full_text = $1;  
+    end if;  
+  
+    if $2 is not null then  
+        if full_text <> '' then  
+            full_text = full_text || ' ';  
+        end if;  
+        full_text = full_text || $2;  
+    end if;  
+  
+    if $3 is not null then  
+        if full_text <> '' then  
+            full_text = full_text || ' ';  
+        end if;  
+        full_text = full_text || $3;  
+    end if;  
+  
+    return full_text;  
+end;  
+$$ language plpgsql;  
+  
+create or replace function get_employee_by_citizen_id(char)  
+    returns table (full_name varchar, marital_status_text varchar)  
+as  
+$$  
+declare  
+    e record;  
+begin  
+    for e in select *  
+             from employees where citizen_id =$1  
+    loop  
+        full_name = get_full_text(e.first_name, e.middle_name, e.last_name);  
+        marital_status_text = get_marital_status_text_tr(e.marital_status);  
+    end loop;  
+end;  
+$$ language plpgsql;
+```
+
+##### Cursor Kullanımı
+
 >

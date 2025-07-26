@@ -67,3 +67,6 @@
 
 >Programlamada çalışma zamanında bazı hatalı durumlar oluşabilmektedir. Bunlara genel olarak **runtime error** veya **exception** terimleri kullanılır. VTYS dilleri yorumlayıcı (interpreter) ile çalıştıklarından sentaks ve semantik hatalar ile çalışma zamanında meydana gelen hatalı durumlar yine çalışma zamanında ele alınır. Sentaks ve semantik hatalar dışında kalan hataların oluşması durumunda programın nasıl devam edeceğine karar verilmesine ilişkin kodların yazılmasına **hataların işlenmesi (error handling)** denilmektedir. Böylesi bir error handle edilmezse ilgili program (script) abnormal bir biçimde sonlanır.
 
+##### Cursor
+
+>Cursor bir veri kümesini dolaşmak (iteration) için kullanılan bir araçtır. Cursor içerisindeki bir verinin elde edilmesine **fetching** denilmektedir. Cursor mantıksal olarak başlangıçta il verinin öncesini gösterir. Her adımda ilgili veri elde edilir (fetch), en son veriden sonra elde etme işlemi tamamlanmış olur. 
