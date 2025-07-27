@@ -69,4 +69,4 @@
 
 ##### Cursor
 
->Cursor bir veri kümesini dolaşmak (iteration) için kullanılan bir araçtır. Cursor içerisindeki bir verinin elde edilmesine **fetching** denilmektedir. Cursor mantıksal olarak başlangıçta il verinin öncesini gösterir. Her adımda ilgili veri elde edilir (fetch), en son veriden sonra elde etme işlemi tamamlanmış olur. 
+>Cursor bir veri kümesini dolaşmak (iteration) için kullanılan bir araçtır. Cursor içerisindeki bir verinin elde edilmesine **fetching** denilmektedir. Cursor mantıksal olarak başlangıçta ilk verinin öncesini gösterir. Her adımda ilgili veri elde edilir (fetch), en son veriden sonra elde etme işlemi tamamlanmış olur. 

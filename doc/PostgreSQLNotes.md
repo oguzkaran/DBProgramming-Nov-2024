@@ -4035,4 +4035,73 @@ $$ language plpgsql;
 
 ##### Cursor Kullanımı
 
->
+>Cursor işlem yapma adımları tipik olarak ve sırasıyla şu şekildedir:
+>1. Cursor tanımlanır (declare).
+>2. Cursor açılır (open).
+>3. Bir loop içerisinde `fetch` işlemi yapılır.
+>4. Cursor kapatılır.
+
+>Aşağıdaki örneği inceleyiniz
+
+```sql
+create table sensors (  
+    sensor_id serial primary key,  
+    name varchar(300) not null,  
+    host varchar(300) not null,  
+    register_date date default(current_date) not null,  
+    is_active boolean default(true) not null  
+);  
+  
+create table sensor_data (  
+    sensor_data_id bigserial primary key,  
+    sensor_id int references sensors(sensor_id) not null,  
+    port int check(1024 <= port and port <= 65535),  
+    value numeric not null  
+);  
+  
+  
+create or replace function get_data_as_text_by_sensor_id_and_delimiter(int, text, text)  
+returns text  
+as  
+$$  
+    declare  
+        str text = '';  
+        di record;  
+        crs_data cursor(id int) for select sd.value, sd.port  
+                                    from sensors s inner join sensor_data sd on s.sensor_id = sd.sensor_id  
+                                    where s.sensor_id = $1;  
+    begin  
+        open crs_data($1);  
+  
+        loop  
+            fetch crs_data into di;  
+            exit when not found;  
+            if str <> '' then  
+                str = str || $2;  
+            end if;  
+            str = str || di.port || $3 || di.value;  
+        end loop;  
+  
+        close crs_data;  
+  
+        return str;  
+    end;  
+$$ language plpgsql;  
+  
+do  
+$$  
+    declare  
+        str text;  
+    begin  
+        str = get_data_as_text_by_sensor_id_and_delimiter(2, ', ', '-');  
+  
+        if str = '' then  
+            str = 'No data';  
+        end if;  
+  
+        raise notice '%',  str;  
+    end;  
+$$;
+```
+
+
