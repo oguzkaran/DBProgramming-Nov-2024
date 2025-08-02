@@ -2528,4 +2528,238 @@ exec sp_do_select
 
 ##### Döngü Deyimleri
 
->
+>Bir işin yinelemeli olarak yapılmasını sağlayan kontrol deyimlerine **döngü deyimleri (loop statements)** denir. SQL Server'da yalnızca `while` döngüsü bulunur. Şüphesiz `goto` deyimi ile de dolaylı olarak döngü oluşturulabilse de programlama açısından tavsiye edilen bir durum değildir. 
+
+>`while` döngü deyiminde, belirlenen koşul gerçeklendiği sürece yineleme işlemi yapılır. Akış while döngü deyimine geldiğinde koşul kontrolü yapılır, duruma göre yani koşul gerçeklenmezse döngüye girilmeyebilir.
+
+
+```sql
+declare @n int = rand() * 20 - 10  
+declare @i int = 0  
+  
+select @n  
+  
+while @i < @n  
+begin  
+    select @i  
+    set @i = @i + 1  
+end
+```
+
+**Sınıf Çalışması:** Parametresi ile aldığı bir yazı ve bir karakter için, yazının içerisinde o karakterden kaç tane olduğu bilgisine geri dönen `count_char` isimli fonksiyonu yazınız
+
+>**Çözüm:**
+
+```sql
+create function char_at(@str nvarchar(max), @idx int)  
+returns nchar(1)  
+as  
+begin  
+    return substring(@str, @idx, 1)  
+end  
+  
+create function count_char(@str nvarchar(max), @ch nchar(1))  
+returns int  
+as  
+begin  
+    declare @len int = len(@str)  
+    declare @i int = 1  
+    declare @count int = 0;  
+  
+    while @i <= @len  
+    begin  
+        if dbo.char_at(@str, @i) = @ch  
+            set @count = @count + 1  
+  
+        set @i = @i + 1  
+    end  
+  
+    return @count  
+end  
+  
+  
+select dbo.count_char('ankara', 'a')  
+select dbo.count_char('ankara', 't')
+```
+
+SSSSSSSSSSSSSS
+
+>**Sınıf Çalışması:** Parametresi ile aldığı iki yazıdan birincisi içerisinde ikincisinden kaç tane olduğu bilgisine geri dönen `count_string` isimli fonksiyonu yazınız. Örneğin `aaa yazısı içerisinde aa yazısından 2 tane vardır`
+>`count_string` fonksiyonunun case-insensitive olarak işlem yapan `count_string_ignore_case` fonksiyonunu da yazınız.
+
+>**Çözüm:**
+
+```sql
+create or replace function count_string(s1 text, s2 text)  
+    returns int  
+as  
+$$  
+declare  
+    pos int;  
+    count int = 0;  
+    str text = $1;  
+    len int = length(str);  
+begin  
+    pos = position($2 in str);  
+    while pos <> 0  
+    loop  
+        count = count + 1;  
+        pos = pos + 1;  
+        str = substr(str, pos, len);  
+        pos = position($2 in str);  
+    end loop;  
+  
+    return count;  
+end;  
+$$ language plpgsql;  
+  
+  
+create or replace function count_string_ignore_case(s1 text, s2 text)  
+    returns int  
+as  
+$$  
+begin  
+    return count_string(lower(s1), lower(s2));  
+end;  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', count_string('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string('aaa', 'aa');  
+        raise notice '%', count_string('aaa', 'Aa');  
+        raise notice '///////////////////////';  
+        raise notice '%', count_string_ignore_case('Bugün hava çok güzel, çok çok güzel', 'çok');  
+        raise notice '%', count_string_ignore_case('aaa', 'aa');  
+        raise notice '%', count_string_ignore_case('aaa', 'Aa');  
+    end;  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli fonksiyonu yazınız.
+
+**Çözüm:**
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+    begin  
+        return floor(random() * (bound - origin) + origin);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function sum_random(count int, origin int, bound int)  
+returns int  
+as  
+$$  
+    declare  
+        i int = 1;  
+        total int = 0;  
+        value int;  
+    begin  
+        while i <= count  
+        loop  
+            value = random_value(origin, bound);  
+            -- raise notice '%', value;  
+            total = total + value;  
+            i = i + 1;  
+        end loop;  
+  
+        return total;  
+    end  
+$$ language plpgsql;  
+  
+do $$  
+    begin  
+        raise notice 'Total:%', sum_random(4, 0, 100);  
+    end  
+$$
+```
+
+>**Sınıf Çalışması:** Parametresi ile aldığı `n` tamsayı değeri için n tane rassal olarak üretilmiş İngilizce karakterlerden oluşan yazıya geri dönen `random_text_en` ve n tane rassal olarak üretilmiş Türkçe karakterlerden oluşan yazıya geri dönen `random_text_tr` isimli fonksiyonları yazınız.
+
+>**Çözüm:**
+
+```sql
+create or replace function random_value(origin int, bound int)  
+returns int  
+as  
+$$  
+begin  
+    return floor(random() * (bound - origin) + origin);  
+end  
+$$ language plpgsql;  
+  
+create or replace function char_at(str varchar, idx int)  
+returns char(1)  
+as  
+$$  
+begin  
+    return substr(str, idx, 1);  
+end;  
+$$ language plpgsql;  
+  
+create or replace function random_text(n int, srcTxt varchar)  
+returns varchar  
+as  
+$$  
+declare  
+    i int = 1;  
+    result varchar = '';  
+    idx int;  
+    srcLen int = length(srcTxt);  
+begin  
+    while i <= n  
+    loop  
+        idx = random_value(1, srcLen + 1);  
+        result = result || char_at(srcTxt, idx);  
+        i = i + 1;  
+    end loop;  
+    return result;  
+end  
+$$ language plpgsql;  
+  
+create or replace function random_text_en(n int)  
+returns varchar  
+as  
+$$  
+    begin  
+        return random_text(n, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');  
+    end  
+$$ language plpgsql;  
+  
+  
+create or replace function random_text_tr(n int)  
+returns varchar  
+as  
+$$  
+    begin  
+        return random_text(n, 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvxyz');  
+    end  
+$$ language plpgsql;  
+  
+  
+do $$  
+    begin  
+        raise notice '%', random_text(10, '1234567890-_?*');  
+        raise notice '%', random_text_en(10);  
+        raise notice '%', random_text_tr(10);  
+    end  
+$$
+```
+
+>Buradaki `random_text` fonksiyonunun aşağıdaki gibi bir demo örnekte kullanılabileceğine dikkat ediniz. Şifre üretimine ilişkin güvenlik (security) detayları göz ardı edilmiştir.
+
+```sql
+create table user_info (  
+    username nvarchar(50) primary key,  
+    password nvarchar(8) default(dbo.random_text(8, '1234567890-_?*')) not null, 
+    first_name nvarchar(100) not null,  
+    second_name nvarchar(100) not null,  
+    birth_date date not null,  
+    register_date_time datetime default(getdate()) not null  
+)
+
+insert into user_info (username, first_name, second_name, birth_date) values ('oguzkaran', 'Oğuz', 'Karan', '1976-09-10');
