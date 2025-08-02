@@ -3,7 +3,7 @@
 ### Eğitmen: Oğuz KARAN
 
 >PostgreSQL free olarak kullanılabilen güçlü bir veritabanı yönetim sistemidir. PostgreSQL 
->**[https://www.enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.oracle.com/tr/java/technologies/downloads/)**  bağlantısından ilgili işletim sistemine göre indirilip yüklenebilmektedir.  Ayrıca PostgreSQL `docker` platformu ile kullanılabilmektedir. Docker image'ı olarak PostgreSQL'in çekilebilmesi (pull) her host sistemde aşağıdaki gibi yapılabilir:
+>**[https://www.enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.postgresql.org/download/)**  bağlantısından ilgili işletim sistemine göre indirilip yüklenebilmektedir.  Ayrıca PostgreSQL `docker` platformu ile kullanılabilmektedir. Docker image'ı olarak PostgreSQL'in çekilebilmesi (pull) her host sistemde aşağıdaki gibi yapılabilir:
 
 	`docker pull postgres:latest`
 
