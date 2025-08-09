@@ -2582,7 +2582,6 @@ select dbo.count_char('ankara', 'a')
 select dbo.count_char('ankara', 't')
 ```
 
-SSSSSSSSSSSSSS
 
 >**Sınıf Çalışması:** Parametresi ile aldığı iki yazıdan birincisi içerisinde ikincisinden kaç tane olduğu bilgisine geri dönen `count_string` isimli fonksiyonu yazınız. Örneğin `aaa yazısı içerisinde aa yazısından 2 tane vardır`
 >`count_string` fonksiyonunun case-insensitive olarak işlem yapan `count_string_ignore_case` fonksiyonunu da yazınız.
@@ -2590,52 +2589,41 @@ SSSSSSSSSSSSSS
 >**Çözüm:**
 
 ```sql
-create or replace function count_string(s1 text, s2 text)  
-    returns int  
+create function count_string(@s1 nvarchar(max), @s2 nvarchar(max))  
+returns int  
 as  
-$$  
-declare  
-    pos int;  
-    count int = 0;  
-    str text = $1;  
-    len int = length(str);  
 begin  
-    pos = position($2 in str);  
-    while pos <> 0  
-    loop  
-        count = count + 1;  
-        pos = pos + 1;  
-        str = substr(str, pos, len);  
-        pos = position($2 in str);  
-    end loop;  
+    declare @pos int = 1  
+    declare @count int = 0  
+    declare @str nvarchar(max) = @s1  
   
-    return count;  
-end;  
-$$ language plpgsql;  
+    set @pos = charindex(@s2 collate Latin1_General_CS_AS, @str collate Latin1_General_CS_AS)  
   
-  
-create or replace function count_string_ignore_case(s1 text, s2 text)  
-    returns int  
-as  
-$$  
-begin  
-    return count_string(lower(s1), lower(s2));  
-end;  
-$$ language plpgsql;  
-  
-  
-do $$  
+    while @pos <> 0  
     begin  
-        raise notice '%', count_string('Bugün hava çok güzel, çok çok güzel', 'çok');  
-        raise notice '%', count_string('aaa', 'aa');  
-        raise notice '%', count_string('aaa', 'Aa');  
-        raise notice '///////////////////////';  
-        raise notice '%', count_string_ignore_case('Bugün hava çok güzel, çok çok güzel', 'çok');  
-        raise notice '%', count_string_ignore_case('aaa', 'aa');  
-        raise notice '%', count_string_ignore_case('aaa', 'Aa');  
-    end;  
-$$
+        set @count = @count + 1  
+        set @pos = @pos + 1  
+        set @pos = charindex(@s2 collate Latin1_General_CS_AS, @str collate Latin1_General_CS_AS, @pos)  
+    end  
+  
+    return @count  
+end  
+
+create function count_string_ignore_case(@s1 nvarchar(max), @s2 nvarchar(max))  
+returns int  
+begin  
+   return dbo.count_string(lower(@s1), lower(@s2));  
+end  
+  
+select dbo.count_string(N'Bugün hava çok güzel, çok çok güzel', N'çok')  
+select dbo.count_string('aaa', 'aa')  
+select dbo.count_string('aaa', 'Aa')  
+select dbo.count_string_ignore_case(N'Bugün hava çok güzel, çok çok güzel', N'çok')  
+select dbo.count_string_ignore_case('aaa', 'aa')  
+select dbo.count_string_ignore_case('aaa', 'Aa')
 ```
+
+SSSSSSSSSSSSS
 
 >**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli fonksiyonu yazınız.
 
@@ -2763,3 +2751,9 @@ create table user_info (
 )
 
 insert into user_info (username, first_name, second_name, birth_date) values ('oguzkaran', 'Oğuz', 'Karan', '1976-09-10');
+
+```
+
+##### Cursor Kullanımı
+
+>
