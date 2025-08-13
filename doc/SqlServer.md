@@ -2623,47 +2623,34 @@ select dbo.count_string_ignore_case('aaa', 'aa')
 select dbo.count_string_ignore_case('aaa', 'Aa')
 ```
 
-SSSSSSSSSSSSS
-
->**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli fonksiyonu yazınız.
+>**Sınıf Çalışması:** Parametresi ile aldığı `origin, bound ve count` tamsayı değerleri için count tane `[origin, bound)` aralığında üretilen rassal değerlerin toplamına geri dönen `sum_random` isimli SP'yi yazınız.
 
 **Çözüm:**
 ```sql
-create or replace function random_value(origin int, bound int)  
-returns int  
+create procedure sp_sum_random(@count int, @origin int, @bound int, @result int out)  
 as  
-$$  
-    begin  
-        return floor(random() * (bound - origin) + origin);  
-    end  
-$$ language plpgsql;  
+begin  
+    declare @i int = 1  
+    declare @value int  
+    set @result = 0  
   
-create or replace function sum_random(count int, origin int, bound int)  
-returns int  
-as  
-$$  
-    declare  
-        i int = 1;  
-        total int = 0;  
-        value int;  
-    begin  
-        while i <= count  
-        loop  
-            value = random_value(origin, bound);  
-            -- raise notice '%', value;  
-            total = total + value;  
-            i = i + 1;  
-        end loop;  
+    while @i <= @count  
+        begin  
+            set @value = rand() * (@bound - @origin) + @origin  
+            set @result = @result + @value  
+            -- select @value as v, @i as idx  
+            set @i = @i + 1  
+        end  
+end  
   
-        return total;  
-    end  
-$$ language plpgsql;  
   
-do $$  
-    begin  
-        raise notice 'Total:%', sum_random(4, 0, 100);  
-    end  
-$$
+select 10;  
+  
+declare @sum int  
+  
+exec sp_sum_random 3, 1, 100, @sum out  
+  
+select @sum
 ```
 
 >**Sınıf Çalışması:** Parametresi ile aldığı `n` tamsayı değeri için n tane rassal olarak üretilmiş İngilizce karakterlerden oluşan yazıya geri dönen `random_text_en` ve n tane rassal olarak üretilmiş Türkçe karakterlerden oluşan yazıya geri dönen `random_text_tr` isimli fonksiyonları yazınız.
@@ -2671,87 +2658,51 @@ $$
 >**Çözüm:**
 
 ```sql
-create or replace function random_value(origin int, bound int)  
-returns int  
-as  
-$$  
-begin  
-    return floor(random() * (bound - origin) + origin);  
-end  
-$$ language plpgsql;  
-  
-create or replace function char_at(str varchar, idx int)  
+create function char_at(@str nvarchar(max), @idx int)  
 returns char(1)  
 as  
-$$  
 begin  
-    return substr(str, idx, 1);  
+    return substring(@str, @idx, 1);  
 end;  
-$$ language plpgsql;  
   
-create or replace function random_text(n int, srcTxt varchar)  
-returns varchar  
+create procedure sp_random_text(@n int, @srcTxt varchar(max), @result nvarchar(max) out)  
 as  
-$$  
-declare  
-    i int = 1;  
-    result varchar = '';  
-    idx int;  
-    srcLen int = length(srcTxt);  
 begin  
-    while i <= n  
-    loop  
-        idx = random_value(1, srcLen + 1);  
-        result = result || char_at(srcTxt, idx);  
-        i = i + 1;  
-    end loop;  
-    return result;  
+    declare @i int = 1  
+    declare @idx int  
+    declare @len int = len(@srcTxt)  
+  
+    set @result = ''  
+  
+    while @i <= @n  
+    begin  
+        set @idx = rand() * @len + 1  
+        set @result = @result + dbo.char_at(@srcTxt, @idx)  
+        set @i = @i + 1  
+    end  
 end  
-$$ language plpgsql;  
   
-create or replace function random_text_en(n int)  
-returns varchar  
+  
+create procedure sp_random_text_en(@n int, @result nvarchar(max) out)  
 as  
-$$  
-    begin  
-        return random_text(n, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');  
-    end  
-$$ language plpgsql;  
+begin  
+    exec sp_random_text @n, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', @result out  
+end  
   
   
-create or replace function random_text_tr(n int)  
-returns varchar  
+create procedure sp_random_text_tr(@n int, @result nvarchar(max) out)  
 as  
-$$  
-    begin  
-        return random_text(n, 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvxyz');  
-    end  
-$$ language plpgsql;  
+begin  
+    exec sp_random_text @n, N'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvxyz', @result out  
+end  
   
-  
-do $$  
-    begin  
-        raise notice '%', random_text(10, '1234567890-_?*');  
-        raise notice '%', random_text_en(10);  
-        raise notice '%', random_text_tr(10);  
-    end  
-$$
-```
-
->Buradaki `random_text` fonksiyonunun aşağıdaki gibi bir demo örnekte kullanılabileceğine dikkat ediniz. Şifre üretimine ilişkin güvenlik (security) detayları göz ardı edilmiştir.
-
-```sql
-create table user_info (  
-    username nvarchar(50) primary key,  
-    password nvarchar(8) default(dbo.random_text(8, '1234567890-_?*')) not null, 
-    first_name nvarchar(100) not null,  
-    second_name nvarchar(100) not null,  
-    birth_date date not null,  
-    register_date_time datetime default(getdate()) not null  
-)
-
-insert into user_info (username, first_name, second_name, birth_date) values ('oguzkaran', 'Oğuz', 'Karan', '1976-09-10');
-
+declare @result nvarchar(max)  
+exec sp_random_text 10, '1234567890-_?*', @result out  
+select @result  
+exec sp_random_text_en 10, @result out  
+select @result  
+exec sp_random_text_tr 10, @result out  
+select @result
 ```
 
 ##### Cursor Kullanımı
