@@ -4041,7 +4041,7 @@ $$ language plpgsql;
 >3. Bir loop içerisinde `fetch` işlemi yapılır.
 >4. Cursor kapatılır.
 
->Aşağıdaki örneği inceleyiniz
+>Aşağıdaki demo örneği inceleyiniz
 
 ```sql
 create table sensors (  

@@ -2707,4 +2707,211 @@ select @result
 
 ##### Cursor Kullanımı
 
+>Cursor kullanımı aşağıdaki adımlar kullanırak gerçekleştirilir. 
 >
+>1. Cursor yaratılır.
+>2. Cursor açılır (open)
+>3. İlk adım da dahil olmak üzere fetch işlemi yapılır
+>4. Cursor kapatılır
+>5. Cursor yok edilir.
+
+>Aşağıdaki demo örneği inceleyiniz. Örnek tek bir update cümlesi ile de yapılabilir. Durumu göstermek için cursor kullanılarak yazılmıştır.
+
+```sql
+create database companydb  
+  
+use companydb  
+  
+create table staff (  
+    staff_id int primary key identity(1, 1),  
+    citizen_id char(40) unique not null,  
+    first_name nvarchar(300) not null,  
+    second_name nvarchar(300),  
+    last_name nvarchar(300) not null,  
+    birth_date date not null,  
+    register_date date default(getdate()) not null,  
+    address nvarchar(max) not null  
+)  
+  
+create procedure sp_make_last_name_upper  
+as  
+begin  
+    declare crs_staff cursor for select citizen_id from staff -- cursor tanımlanıyor  
+    open crs_staff  
+    declare @citizen_id char(40)  
+  
+    fetch next from crs_staff into @citizen_id -- cursor içerisinde veri elde ediliyor  
+  
+    while @@fetch_status = 0  
+        begin  
+            update staff set last_name=upper(last_name) where citizen_id=@citizen_id  
+            -- ...  
+            fetch next from crs_staff into @citizen_id -- tekrar fetch işlemi yapılıyor  
+        end  
+	close crs_staff -- cursor kapatılıyor
+    deallocate crs_staff -- cursor yok ediliyor  
+end  
+  
+  
+exec sp_make_last_name_upper
+```
+
+SSSSSSSSSSSSSSSSSSSSSSSSS
+
+Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create table sensors (  
+    sensor_id serial primary key,  
+    name varchar(300) not null,  
+    host varchar(300) not null,  
+    register_date date default(current_date) not null,  
+    is_active boolean default(true) not null  
+);  
+  
+create table sensor_data (  
+    sensor_data_id bigserial primary key,  
+    sensor_id int references sensors(sensor_id) not null,  
+    port int check(1024 <= port and port <= 65535),  
+    value numeric not null  
+);  
+  
+  
+create or replace function get_data_as_text_by_sensor_id_and_delimiter(int, text, text)  
+returns text  
+as  
+$$  
+    declare  
+        str text = '';  
+        di record;  
+        crs_data cursor(id int) for select sd.value, sd.port  
+                                    from sensors s inner join sensor_data sd on s.sensor_id = sd.sensor_id  
+                                    where s.sensor_id = $1;  
+    begin  
+        open crs_data($1);  
+  
+        loop  
+            fetch crs_data into di;  
+            exit when not found;  
+            if str <> '' then  
+                str = str || $2;  
+            end if;  
+            str = str || di.port || $3 || di.value;  
+        end loop;  
+  
+        close crs_data;  
+  
+        return str;  
+    end;  
+$$ language plpgsql;  
+  
+do  
+$$  
+    declare  
+        str text;  
+    begin  
+        str = get_data_as_text_by_sensor_id_and_delimiter(2, ', ', '-');  
+  
+        if str = '' then  
+            str = 'No data';  
+        end if;  
+  
+        raise notice '%',  str;  
+    end;  
+$$;
+```
+
+>`fetch absolute` ile bir indekste bulunan veri elde edilebilir. Bu durumda cursor'ın dinamik olmaması yani `random access` erişim için `scroll` özelliği ile yaratılması gerekir
+
+>Aşağıdaki demo örnekte her çalıştırmada rassal bir staff'ın `citizen_id` bilgisini veren bir SP cursor kullanılarak yazılmıştır
+
+```java
+create database companydb  
+  
+use companydb  
+  
+create table staff (  
+    staff_id int primary key identity(1, 1),  
+    citizen_id char(40) unique not null,  
+    first_name nvarchar(300) not null,  
+    second_name nvarchar(300),  
+    last_name nvarchar(300) not null,  
+    birth_date date not null,  
+    register_date date default(getdate()) not null,  
+    address nvarchar(max) not null  
+)  
+  
+create procedure sp_get_random_staff(@citizen_id char(40) output)  
+as  
+begin  
+    declare @bound int = (select count(*) from staff) + 1  
+    declare @min int = 1  
+    declare @idx int = floor(rand() * (@bound - @min) + @min)  
+    declare crs_staff cursor scroll for select citizen_id from staff  
+    open crs_staff  
+  
+    set @citizen_id = ''  
+  
+    fetch absolute @idx from crs_staff into @citizen_id  
+  
+    close crs_staff  
+    deallocate crs_staff  
+end  
+  
+  
+declare @citizen_id char(40)  
+exec sp_get_random_staff @citizen_id out  
+  
+select * from staff where citizen_id=@citizen_id
+```
+
+SSSSSSSSSSSSSSSSSSSSSSSSSSS
+
+>**Sınıf Çalışması:** Aşağıdaki veritabanını oluşturunuz ve soruları cevaplayınız
+	cities
+		- city_id
+		- name
+	patients
+		- patient_id
+		- full_name
+		- city_id
+		- birth_date
+	relations
+		- relation_id 
+		- description (Mother, Dad, Child, Aunt, Uncle etc)
+	companions
+		- companion_id
+		- full_name
+		- patient_id,
+		- relation_id
+		- begin_date
+		- end_date
+>**Sorular:**
+	1. Tüm patient_id'lere ilişkin hastaların isimlerini büyük harfe çeviren SP'yi yazınız.
+	2. Parametresi ile aldığı yaştan büyük olan hastaların refakatçi ve kendi isimlerini büyük harfe çeviren SP'yi yazınız
+	3. Parametresi ile aldığı city_id değerine göre refakatçi isimlerini küçük harfe çeviren SP'yi yazınız
+
+>**Çözüm:**
+
+>**Sınıf Çalışması:** Basit bir çoktan seçmeli sınava (yarışmaya) ilişkin aşağıdaki veritabanını oluşturunuz ve ilgili soruları cevaplayınız:
+		levels
+			- level_id
+			- description
+		questions:
+			- question_id
+			- description
+			- level_id			
+		options:
+			- option_id
+			- description
+			- question_id
+			- is_answer
+>		
+>Soruların seçenek sayısı değişebilecektir
+>**Sorular:**
+	1. Her çağrıldığında herhangi bir seviyeden rassal bir soru getiren sorgu.
+	2. Parametresi ile aldığı level_id bilgisine göre rassal bir soru getiren sorgu.
+	3. Parametresi ile aldığı question_id'ye göre ilgili sorunun seçeneklerini getiren `get_options` fonksiyonunu yazınız.
+	4. Parametresi ile aldığı question_id'ye göre ilgili sorunun doğru cevaplarını getiren `get_answers` fonksiyonunu yazınız.
+
+**Çözüm:** 
