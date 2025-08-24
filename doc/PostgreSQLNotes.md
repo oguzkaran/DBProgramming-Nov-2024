@@ -4104,4 +4104,117 @@ $$
 $$;
 ```
 
+>Postgresql'da bir  verinin indeks numarasına bir tanesini elde etmek için cursor kullanmaya gerek yoktur. Bunun bir kaç yöntemi olabilse de tipik olarak order by ve limit cümleleri ile yapılabilir.
+
+>Aşağıdaki demo örnekte rassal olarak bir tane şehir elde edilebilmektedir
+
+```sql
+create table cities (  
+    city_id serial primary key,  
+    name varchar(100) not null  
+);  
+
+select * from cities order by random() limit 1;
+```
+
+>Burada `order by random()` rassal sıralama anlamında bir kalıptır.
+
+>**Sınıf Çalışması:** Basit bir çoktan seçmeli sınava (yarışmaya) ilişkin aşağıdaki veritabanını oluşturunuz ve ilgili soruları cevaplayınız:
+		levels
+			- level_id
+			- description
+		questions:
+			- question_id
+			- description
+			- level_id			
+		options:
+			- option_id
+			- description
+			- question_id
+			- is_answer
+>		
+>Soruların seçenek sayısı değişebilecektir
+>**Sorular:**
+	1. Her çağrıldığında herhangi bir seviyeden rassal bir soru getiren sorguya ilişkin SP'yi yazınız.
+	2. Parametresi ile aldığı level_id bilgisine göre rassal bir soru getiren sorguya ilişkin SP'yi yazınız.
+	3. Parametresi ile aldığı question_id'ye göre ilgili sorunun seçeneklerini getiren `get_options` fonksiyonunu yazınız.
+	4. Parametresi ile aldığı question_id'ye göre ilgili sorunun doğru cevaplarını getiren `get_answers` fonksiyonunu yazınız.
+
+**Çözüm:** 
+
+```sql
+create table levels(  
+    level_id int primary key identity(1, 1),  
+    description nvarchar(100) not null  
+)  
+  
+create table questions (  
+    question_id bigint primary key identity(1, 1),  
+    description nvarchar(max) not null,  
+    level_id int foreign key references levels(level_id) not null  
+)
+  
+create table options (  
+    option_id bigint primary key identity(1, 1),  
+    description nvarchar(max) not null,  
+    question_id bigint foreign key references questions(question_id) not null,  
+    is_answer bit default(0) not null  
+)  
+  
+create procedure sp_get_random_question(@question_id bigint out)  
+as  
+begin  
+    declare @status int  
+    begin tran  
+    declare crs_questions cursor scroll for select question_id from questions  
+    open crs_questions  
+  
+    declare @bound bigint = (select count(*) from questions) + 1  
+    declare @idx bigint = floor(rand() * (@bound - 1) + 1)  
+  
+    fetch absolute @idx from crs_questions into @question_id  
+  
+    close crs_questions  
+    deallocate crs_questions  
+  
+    commit tran  
+end  
+  
+create procedure sp_get_random_question_by_level_id(@level_id int, @question_id bigint out)  
+as  
+begin  
+    declare @status int  
+    begin tran  
+        declare crs_questions cursor scroll for select question_id from questions where level_id = @level_id  
+        open crs_questions  
+  
+        declare @bound bigint = (select count(*) from questions) + 1  
+        declare @idx bigint = floor(rand() * (@bound - 1) + 1)  
+  
+        fetch absolute @idx from crs_questions into @question_id  
+  
+        close crs_questions  
+        deallocate crs_questions  
+  
+    commit tran  
+end  
+  
+create function get_question_text(@question_id bigint)  
+returns nvarchar(max)  
+as  
+begin  
+    return (select description from questions where question_id = @question_id)  
+end  
+  
+  
+create function get_options(@question_id bigint)  
+returns table  
+as  
+    return (select description, is_answer from options where question_id = @question_id)  
+  
+create function get_answers(@question_id bigint)  
+returns table  
+as  
+return (select description from options where question_id = @question_id and is_answer = 1)
+```
 

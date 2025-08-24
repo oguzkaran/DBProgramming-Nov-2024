@@ -2865,36 +2865,6 @@ exec sp_get_random_staff @citizen_id out
 select * from staff where citizen_id=@citizen_id
 ```
 
-SSSSSSSSSSSSSSSSSSSSSSSSSSS
-
->**Sınıf Çalışması:** Aşağıdaki veritabanını oluşturunuz ve soruları cevaplayınız
-	cities
-		- city_id
-		- name
-	patients
-		- patient_id
-		- full_name
-		- city_id
-		- birth_date
-	relations
-		- relation_id 
-		- description (Mother, Dad, Child, Aunt, Uncle etc)
-	companions
-		- companion_id
-		- full_name
-		- patient_id,
-		- relation_id
-		- begin_date
-		- end_date
->**Sorular:**
-	1. Tüm patient_id'lere ilişkin hastaların isimlerini büyük harfe çeviren SP'yi yazınız.
-	2. Parametresi ile aldığı yaştan büyük olan hastaların refakatçi ve kendi isimlerini büyük harfe çeviren SP'yi yazınız
-	3. Parametresi ile aldığı city_id değerine göre refakatçi isimlerini küçük harfe çeviren SP'yi yazınız
-
->**Çözüm:**
-
-
-
 >**Sınıf Çalışması:** Basit bir çoktan seçmeli sınava (yarışmaya) ilişkin aşağıdaki veritabanını oluşturunuz ve ilgili soruları cevaplayınız:
 		levels
 			- level_id
@@ -2928,7 +2898,7 @@ create table questions (
     question_id bigint primary key identity(1, 1),  
     description nvarchar(max) not null,  
     level_id int foreign key references levels(level_id) not null  
-)  
+)
   
 create table options (  
     option_id bigint primary key identity(1, 1),  
@@ -2992,4 +2962,57 @@ create function get_answers(@question_id bigint)
 returns table  
 as  
 return (select description from options where question_id = @question_id and is_answer = 1)
+```
+
+>Aslında yukarıdaki örnek hiç cursor kullanmadan da `newid` fonksiyonu kullanılarak yapılabilir. Bu fonksiyonun ayrıntıları ve çeşitli biçimlerde kullanımı ileride ele alınacaktır. `order by newid` şu aşamada rassal olarak sıraya sokan bir kalıp olarak düşünülmelidir
+
+```sql
+create table levels(  
+    level_id int primary key identity(1, 1),  
+    description nvarchar(100) not null  
+)  
+  
+create table questions (  
+    question_id bigint primary key identity(1, 1),  
+    description nvarchar(max) not null,  
+    level_id int foreign key references levels(level_id) not null  
+)  
+  
+create table options (  
+     option_id bigint primary key identity(1, 1),  
+     description nvarchar(max) not null,  
+     question_id bigint foreign key references questions(question_id) not null,  
+     is_answer bit default(0) not null  
+)  
+  
+create procedure sp_get_random_question(@question_id bigint out)  
+as  
+begin  
+    set @question_id = (select top 1 question_id from questions order by newid())  
+end  
+  
+  
+create procedure sp_get_random_question_by_level_id(@level_id int, @question_id bigint out)  
+as  
+begin  
+    set @question_id = (select top 1 question_id from questions where level_id = @level_id order by newid())  
+end  
+  
+create function get_question_text(@question_id bigint)  
+    returns nvarchar(max)  
+as  
+begin  
+    return (select description from questions where question_id = @question_id)  
+end  
+  
+  
+create function get_options(@question_id bigint)  
+returns table  
+as  
+    return (select description, is_answer from options where question_id = @question_id)  
+  
+create function get_answers(@question_id bigint)  
+returns table  
+as  
+    return (select description from options where question_id = @question_id and is_answer = 1)
 ```
