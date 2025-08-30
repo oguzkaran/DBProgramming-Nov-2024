@@ -4119,6 +4119,7 @@ select * from cities order by random() limit 1;
 
 >Burada `order by random()` rassal sıralama anlamında bir kalıptır.
 
+
 >**Sınıf Çalışması:** Basit bir çoktan seçmeli sınava (yarışmaya) ilişkin aşağıdaki veritabanını oluşturunuz ve ilgili soruları cevaplayınız:
 		levels
 			- level_id
@@ -4143,78 +4144,73 @@ select * from cities order by random() limit 1;
 **Çözüm:** 
 
 ```sql
-create table levels(  
-    level_id int primary key identity(1, 1),  
-    description nvarchar(100) not null  
-)  
+create table levels (  
+    level_id serial primary key,  
+    description varchar(100) not null  
+);  
   
 create table questions (  
-    question_id bigint primary key identity(1, 1),  
-    description nvarchar(max) not null,  
-    level_id int foreign key references levels(level_id) not null  
-)
+    question_id bigserial primary key,  
+    description text not null,  
+    level_id int references levels(level_id) not null  
+);  
   
 create table options (  
-    option_id bigint primary key identity(1, 1),  
-    description nvarchar(max) not null,  
-    question_id bigint foreign key references questions(question_id) not null,  
-    is_answer bit default(0) not null  
-)  
+    option_id bigserial primary key ,  
+    description text not null,  
+    question_id bigint references questions(question_id) not null,  
+    is_answer bool default(false) not null  
+);  
   
-create procedure sp_get_random_question(@question_id bigint out)  
-as  
+create or replace function get_random_question()  
+returns bigint  
+as $$  
+    begin  
+        return (select question_id from questions order by random() limit 1);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function get_random_question_by_level_id(int)  
+returns bigint  
+as $$  
 begin  
-    declare @status int  
-    begin tran  
-    declare crs_questions cursor scroll for select question_id from questions  
-    open crs_questions  
-  
-    declare @bound bigint = (select count(*) from questions) + 1  
-    declare @idx bigint = floor(rand() * (@bound - 1) + 1)  
-  
-    fetch absolute @idx from crs_questions into @question_id  
-  
-    close crs_questions  
-    deallocate crs_questions  
-  
-    commit tran  
+    return (select question_id from questions where level_id = $1 order by random() limit 1);  
 end  
+$$ language plpgsql;  
   
-create procedure sp_get_random_question_by_level_id(@level_id int, @question_id bigint out)  
-as  
+create or replace function get_question_text(bigint)  
+returns text  
+as $$  
+    begin  
+        return (select description from questions where question_id = $1);  
+    end  
+$$ language plpgsql;  
+  
+create or replace function get_options(bigint)  
+returns table (description text, is_answer bool)  
+as $$  
+    begin  
+        return query (select o.description, o.is_answer from options o where question_id = $1);  
+    end;  
+$$ language plpgsql;  
+  
+  
+create or replace function get_answers(bigint)  
+returns table (description text)  
+as $$  
 begin  
-    declare @status int  
-    begin tran  
-        declare crs_questions cursor scroll for select question_id from questions where level_id = @level_id  
-        open crs_questions  
+    return query (select o.description from options o where question_id = $1 and is_answer = true);  
+end;  
+$$ language plpgsql;  
   
-        declare @bound bigint = (select count(*) from questions) + 1  
-        declare @idx bigint = floor(rand() * (@bound - 1) + 1)  
-  
-        fetch absolute @idx from crs_questions into @question_id  
-  
-        close crs_questions  
-        deallocate crs_questions  
-  
-    commit tran  
-end  
-  
-create function get_question_text(@question_id bigint)  
-returns nvarchar(max)  
-as  
-begin  
-    return (select description from questions where question_id = @question_id)  
-end  
-  
-  
-create function get_options(@question_id bigint)  
-returns table  
-as  
-    return (select description, is_answer from options where question_id = @question_id)  
-  
-create function get_answers(@question_id bigint)  
-returns table  
-as  
-return (select description from options where question_id = @question_id and is_answer = 1)
+do $$  
+    begin  
+        raise notice 'Random question id: %', get_random_question();  
+        raise notice 'Random question id: %', get_random_question_by_level_id(1);  
+        raise notice 'Random question id: %', get_answers(1);  
+        raise notice 'Random question id: %', get_options(1);  
+    end  
+$$
 ```
+
 
