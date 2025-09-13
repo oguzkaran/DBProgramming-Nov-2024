@@ -1,6 +1,7 @@
 package org.csystem.app.competition.data.repository.entity;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -8,6 +9,7 @@ import lombok.experimental.Accessors;
 @AllArgsConstructor
 @Getter
 @Setter
+@Builder
 public class OptionEntity {
     @Accessors(prefix = "m_")
     private long m_id;

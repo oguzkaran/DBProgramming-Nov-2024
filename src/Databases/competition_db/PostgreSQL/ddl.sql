@@ -1,3 +1,8 @@
+
+drop table if exists options;
+drop table if exists questions;
+drop table if exists levels;
+
 create table levels (
     level_id serial primary key,
     description varchar(100) not null
@@ -18,7 +23,7 @@ create table options (
     is_answer bool default(false) not null
 );
 
-create or replace function get_random_question()
+create or replace function get_random_question_id()
     returns bigint
 as $$
 begin
@@ -26,7 +31,7 @@ begin
 end
 $$ language plpgsql;
 
-create or replace function get_random_question_by_level_id(int)
+create or replace function get_random_question_id_by_level_id(int)
     returns bigint
 as $$
 begin
