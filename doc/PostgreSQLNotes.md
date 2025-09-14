@@ -4214,4 +4214,49 @@ $$
 ```
 
 
+##### PostgreSQL Kullanıcı İşlemleri:
+
+>PostgreSQL'de bir kullanıcıya genel olarak **role** denilmektedir. Bir kullanıcı yaratmak için `create role` cümlesi	kullanılır. Bir role silmek için `drop role` cümlesi kullanılır. PostgreSQL'de ayrıca **grup** da oluşturulabilmektedir. PostgreSQL 8.1 versiyonu ile birlikte kullanıcılar gruplar ile brilikte `role` şemsiyesi altında toplanmışlardır. Bir role yaratıldığında server üzerindeki tüm veritabanları için geçerli durumdadır. Tüm rollere ilişkin bilgiler şu sorgu ile elde edilebilir:
+
+```sql
+select * from pg_roles;
+```
+
+>`pg_roles` birden fazla tablodan bilgi getiren bir view'dur. Dolayısıyla updatable değildir. Sisteme yönelik view'ların	isimleri genel olarak `pg_xxx` biçimindedir. Role yaratılırken **role attributes** belirlenebilir. role attribute'larından bazıları şunlardır: login, superuser, database creation, password vb. Bir role yaratılırken role attribute'ları belirlenebilir. Örneğin login işlemi için şu şekilde bir cümle kullanılabilir:
+
+```sql
+create role aneta login password '12345';
+```
+
+
+>superuser yetkisi ile role yaratmak için superuser attribute'u verilebilir:
+
+```sql
+create role bekir superuser login password '123456';
+```
+	
+>Bu attribute ile server üzerinde veritabanları da dahil olmak üzere pek çok işlem yapılabilir. superuser attribute'u ile superuser yetkisinde roller yaratılabilir. Şüphesiz superuser rolü dikkatli verilmelidir. 
+
+> createdb attribute'u ile veritabanı yaratabilme yetkisine sahip bir kullanıcı oluşturulabilir:
+
+
+```sql
+create role oguz createdb login password '1234567';
+```
+
+Bu şekilde kullanıcı yaratılabilmesi için, bu cümleyi kullanan user'ın en azından createdb attribute'una sahip olması gerekir. Bir user belirli bir tarih zamana kadar geçerli bir şifre ile yaratılabilir:
+
+```sql
+create role ercan createdb login password '23456' valid until '2025-09-14 21:53';'
+```
+
+Buradaki zaman şifre ile giriş yapılabilme son zamanıdır. Zaten giriş yapılmışsa işlem devam ettirilebilir.	
+
+Bir user belli connection limitiyle de yaratılabilir:
+
+```sql
+create role ismail login password '123456' connection limit 1000;
+```
+
+Bir role drop role cümlesi ile silinebilir. Şüphesiz bu cümleyi createrole attribute'una sahip olan bir role çalıştırabilir.
 
