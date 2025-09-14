@@ -29,7 +29,6 @@ public class CompetitionDataManipulatorAppRunner implements ApplicationRunner {
             log.info(line);
 
             var lineInfo = line.split("[@]");
-
             var questionEntity = QuestionEntity.builder().levelId(Integer.parseInt(lineInfo[0])).description(lineInfo[1]).build();
             var options = Arrays.stream(lineInfo).skip(2).limit(lineInfo.length - 2 - 1)
                     .map(o -> OptionEntity.builder().description(o).build()).toList();
