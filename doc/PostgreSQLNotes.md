@@ -4260,3 +4260,83 @@ create role ismail login password '123456' connection limit 1000;
 
 Bir role drop role cümlesi ile silinebilir. Şüphesiz bu cümleyi createrole attribute'una sahip olan bir role çalıştırabilir.
 
+##### PostgreSQL Yetkilendirme İşlemleri
+
+PostgreSQL'de bir kullanıcının erişebildiği veritabanı elemanları (tablo, view vb.) ile her türlü işlemi yapması	istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme yapamaması istenebilir. Bu tip yetkiler için kullanılan komutlara "grant/revoke privilidges" komutları denilmektedir. PostgreSQL üzerinde bu komutlar oldukça detaylıdır. Burada en çok kullanılanlar anlatılacaktır. Bu komutların çalıştırılabilmesi için `rolsuper` attribute'una sahip olunması gerekir. Burada anlatılanlar öğrenildikten sonra diğer detaylar için dökümanlar	yeterli olacaktır. Bir user'ın (yani bir role'ün) ilk yaratıldığında hiç bir işlem yapmaya yetkisi yoktur. Burada yetki kavramı için **grant access** terimi kullanılmaktadır. O halde bir kullanıcı yaratıldığında yapabileceği işlemlere ilişkin yetkiler verilmeldir. Yetki verme komutlarına **grant**, yetkiyi geri alma komutlarına da **revoke** komutları denir.
+	
+grant komutları `insert, select, delete, update, references, truncate, trigger, create, drop, index, alter ve all`  izinlerini yönetmek için kullanılır. Buna yetkiler ve açıklamaları aşağıdaki gibidir:
+
+| Yetki      | Açıklama                                                        |
+| ---------- | --------------------------------------------------------------- |
+| select     | select yapılması yetkisidir                                     |
+| insert     | insert yapılması yetkisidir                                     |
+| update     | update yapılması yetkisidir                                     |
+| delete     | delete yapılması yetkisidir                                     |
+| references | bir tabloya başka bir tablodan foreign key oluşturma yetkisidir |
+| truncate   | truncate yapılması yetkisidir                                   |
+| trigger    | trigger işlemlerine yönelik yetkidir                            |
+| create     | create yetkisidir                                               |
+| alter      | alter ytetkisidir                                               |
+| executre   | sp veya fonksiyon çalıştırma yetkisidir                         |
+| all        | Tüm yetkileri vermek içindir                                    |
+
+grant komutunun genel biçimi şu şekildedir:
+
+```sql
+	grant <yetki listesi> on <tablo ismi> to <user>
+```
+
+Örneğin
+```sql
+grant select, insert on people to oguz;	
+```
+	
+Bir user'a serial ve bigserial türlerini kullanma yetkisi (aslında nextval ve currval fonksiyonlarını kullanma yetkisi) şu şekilde verilebilir:
+
+```sql
+grant usage on sequence levels_level_id_seq to oguz;
+```
+
+Aşağıdaki `questions` ve `options` tablolarına insert yapılabilmesi için gereken minimal grant komutlarını inceleyiniz:
+
+```sql
+create table levels (  
+    level_id serial primary key,  
+    description varchar(100) not null  
+);  
+
+insert into levels (description) values ('Easy'), ('Medium'), ('Hard'), ('Expert');
+  
+create table questions (  
+    question_id bigserial primary key,  
+    description text not null,  
+    level_id int references levels(level_id) not null  
+);  
+  
+create table options (  
+    option_id bigserial primary key ,  
+    description text not null,  
+    question_id bigint references questions(question_id) not null,  
+    is_answer bool default(false) not null  
+);  
+```
+
+Yetkilendirme komutları:
+
+```sql
+grant select, insert on questions to oguz;  
+grant usage on sequence questions_question_id_seq to oguz;  
+grant insert on options to oguz;
+grant usage on sequence options_option_id_seq to oguz
+```
+
+Burada questions tablosuna veri eklendiğinde otomatik belilenen id değerinin elde edilmesi (yani `currval` fonksiyonunun çağırma yetkisi) `select` olarak verilmiştir. 
+
+grant execute komutu ile bir SP veya fonksiyonu çağırması için kullanıcıya yetki verilmesi için SP'nin ve fonksiyonun da secure olarak yazılmasını gerektirir. Tipik yetkilendirme aşağıdaki gibi yapılabilir:
+
+```sql
+grant usage on schema public to oguz;
+alter procedure sp_insert_question(text, int) security definer set search_path = public;	
+grant execute on procedure sp_insert_question(text, int) to oguz;
+```
+
