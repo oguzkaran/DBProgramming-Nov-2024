@@ -18,13 +18,13 @@ import java.util.List;
 @AllArgsConstructor
 public class QuestionRepository implements IQuestionRepository {
     private static final String INSERT_QUESTION = "insert into questions (description, level_id) values (?, ?)";
-    private static final String INSERT_OPTION = "insert into options (description, question_id, is_answer) values (?, ?, ?)";
+    private static final String CALL_SP_INSERT_OPTION = "call sp_insert_option(?, ?, ?)";
     private final JdbcTemplate m_jdbcTemplate;
 
     private PreparedStatement insertOptionExecuteCallback(PreparedStatement ps, OptionEntity optionEntity) throws SQLException
     {
-        ps.setString(1, optionEntity.getDescription());
-        ps.setLong(2, optionEntity.getQuestionId());
+        ps.setLong(1, optionEntity.getQuestionId());
+        ps.setString(2, optionEntity.getDescription());
         ps.setBoolean(3, optionEntity.isAnswer());
         ps.execute();
 
@@ -58,7 +58,7 @@ public class QuestionRepository implements IQuestionRepository {
 
     private void insertOption(OptionEntity optionEntity)
     {
-        m_jdbcTemplate.execute(INSERT_OPTION, (PreparedStatement ps) -> insertOptionExecuteCallback(ps, optionEntity));
+        m_jdbcTemplate.execute(CALL_SP_INSERT_OPTION, (PreparedStatement ps) -> insertOptionExecuteCallback(ps, optionEntity));
     }
 
     @Override
@@ -66,7 +66,7 @@ public class QuestionRepository implements IQuestionRepository {
     {
         var questionId = insertQuestion(questionEntity);
 
-        log.info("Question ID: " + questionId);
+        log.info("Question ID:{}", questionId);
 
         options.forEach(o -> {o.setQuestionId(questionId); insertOption(o);});
     }
