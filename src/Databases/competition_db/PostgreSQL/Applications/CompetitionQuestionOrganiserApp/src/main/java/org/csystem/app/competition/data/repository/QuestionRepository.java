@@ -5,8 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.csystem.app.competition.data.repository.entity.OptionEntity;
 import org.csystem.app.competition.data.repository.entity.QuestionEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCreator;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
@@ -17,57 +15,35 @@ import java.util.List;
 @Slf4j
 @AllArgsConstructor
 public class QuestionRepository implements IQuestionRepository {
-    private static final String INSERT_QUESTION = "insert into questions (description, level_id) values (?, ?)";
-    private static final String CALL_SP_INSERT_OPTION = "call sp_insert_option(?, ?, ?)";
+    private static final String CALL_SP_INSERT_QUESTION = "call sp_insert_question(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private final JdbcTemplate m_jdbcTemplate;
 
-    private PreparedStatement insertOptionExecuteCallback(PreparedStatement ps, OptionEntity optionEntity) throws SQLException
+    private PreparedStatement insertQuestionExecuteCallback(PreparedStatement ps, QuestionEntity questionEntity, OptionEntity...optionEntity) throws SQLException
     {
-        ps.setLong(1, optionEntity.getQuestionId());
-        ps.setString(2, optionEntity.getDescription());
-        ps.setBoolean(3, optionEntity.isAnswer());
+        ps.setString(1, questionEntity.getDescription());
+        ps.setInt(2, questionEntity.getLevelId());
+        ps.setString(3, optionEntity[0].getDescription());
+        ps.setBoolean(4, optionEntity[0].isAnswer());
+        ps.setString(5, optionEntity[1].getDescription());
+        ps.setBoolean(6, optionEntity[1].isAnswer());
+        ps.setString(7, optionEntity[2].getDescription());
+        ps.setBoolean(8, optionEntity[2].isAnswer());
+        ps.setString(9, optionEntity[3].getDescription());
+        ps.setBoolean(10, optionEntity[3].isAnswer());
         ps.execute();
 
         return ps;
     }
 
-    private PreparedStatementCreator createPreparedStatementCreator(QuestionEntity questionEntity) throws SQLException
+    private void insertQuestion(QuestionEntity questionEntity, OptionEntity...optionEntity)
     {
-        return c -> {
-            var ps = c.prepareStatement(INSERT_QUESTION, new String[]{"question_id"});
-
-            ps.setString(1, questionEntity.getDescription());
-            ps.setInt(2, questionEntity.getLevelId());
-
-            return ps;
-        };
+        m_jdbcTemplate.execute(CALL_SP_INSERT_QUESTION, (PreparedStatement ps) -> insertQuestionExecuteCallback(ps, questionEntity, optionEntity));
     }
 
-    private long insertQuestion(QuestionEntity questionEntity)
-    {
-        try {
-            var keyHolder = new GeneratedKeyHolder();
-
-            m_jdbcTemplate.update(createPreparedStatementCreator(questionEntity), keyHolder);
-
-            return keyHolder.getKey().longValue();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void insertOption(OptionEntity optionEntity)
-    {
-        m_jdbcTemplate.execute(CALL_SP_INSERT_OPTION, (PreparedStatement ps) -> insertOptionExecuteCallback(ps, optionEntity));
-    }
 
     @Override
     public void insertQuestion(QuestionEntity questionEntity, List<OptionEntity> options)
     {
-        var questionId = insertQuestion(questionEntity);
-
-        log.info("Question ID:{}", questionId);
-
-        options.forEach(o -> {o.setQuestionId(questionId); insertOption(o);});
+        insertQuestion(questionEntity, options.get(0), options.get(1),  options.get(2), options.get(3));
     }
 }

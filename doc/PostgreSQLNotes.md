@@ -4263,7 +4263,7 @@ Bir role drop role cümlesi ile silinebilir. Şüphesiz bu cümleyi createrole a
 ##### PostgreSQL Yetkilendirme İşlemleri
 
 PostgreSQL'de bir kullanıcının erişebildiği veritabanı elemanları (tablo, view vb.) ile her türlü işlemi yapması	istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme yapamaması istenebilir. Bu tip yetkiler için kullanılan komutlara "grant/revoke privilidges" komutları denilmektedir. PostgreSQL üzerinde bu komutlar oldukça detaylıdır. Burada en çok kullanılanlar anlatılacaktır. Bu komutların çalıştırılabilmesi için `rolsuper` attribute'una sahip olunması gerekir. Burada anlatılanlar öğrenildikten sonra diğer detaylar için dökümanlar	yeterli olacaktır. Bir user'ın (yani bir role'ün) ilk yaratıldığında hiç bir işlem yapmaya yetkisi yoktur. Burada yetki kavramı için **grant access** terimi kullanılmaktadır. O halde bir kullanıcı yaratıldığında yapabileceği işlemlere ilişkin yetkiler verilmeldir. Yetki verme komutlarına **grant**, yetkiyi geri alma komutlarına da **revoke** komutları denir.
-	
+
 grant komutları `insert, select, delete, update, references, truncate, trigger, create, drop, index, alter ve all`  izinlerini yönetmek için kullanılır. Buna yetkiler ve açıklamaları aşağıdaki gibidir:
 
 | Yetki      | Açıklama                                                        |
@@ -4336,7 +4336,110 @@ grant execute komutu ile bir SP veya fonksiyonu çağırması için kullanıcıy
 
 ```sql
 grant usage on schema public to oguz;
-alter procedure sp_insert_question(text, int) security definer set search_path = public;	
-grant execute on procedure sp_insert_question(text, int) to oguz;
+alter procedure sp_insert_option(int, text, bool) security definer set search_path = public;	
+grant execute on procedure sp_insert_option(int, text, bool) to oguz;
 ```
 
+Aşağıdaki `questions` tablosuna insert ve `options` tablosu `sp_insert_option` ile insert yapılabilmesi için gereken minimal grant komutlarını inceleyiniz:
+
+```sql
+create table levels (  
+    level_id serial primary key,  
+    description varchar(100) not null  
+);  
+
+insert into levels (description) values ('Easy'), ('Medium'), ('Hard'), ('Expert');
+  
+create table questions (  
+    question_id bigserial primary key,  
+    description text not null,  
+    level_id int references levels(level_id) not null  
+);  
+  
+create table options (  
+    option_id bigserial primary key ,  
+    description text not null,  
+    question_id bigint references questions(question_id) not null,  
+    is_answer bool default(false) not null  
+);
+
+create or replace procedure sp_insert_option(bigint, text, bool)  
+language plpgsql  
+as $$  
+    begin  
+        insert into options (question_id, description, is_answer) values ($1, $2, $3);  
+    end;  
+$$;
+
+```
+
+Yetkilendirme komutları:
+
+```sql
+grant select, insert on questions to oguz;  
+grant usage on sequence questions_question_id_seq to oguz;  
+grant usage on schema public to oguz;  
+alter procedure sp_insert_option(bigint, text, bool) security definer set search_path = public;  
+grant execute on procedure sp_insert_option(bigint, text, bool) to oguz;
+```
+
+
+Aşağıdaki `questions` ve `options` tablolarına `sp_insert_question` ile insert yapılabilmesi için gereken minimal grant komutlarını inceleyiniz:
+
+```sql
+create table levels (  
+    level_id serial primary key,  
+    description varchar(100) not null  
+);  
+
+insert into levels (description) values ('Easy'), ('Medium'), ('Hard'), ('Expert');
+  
+create table questions (  
+    question_id bigserial primary key,  
+    description text not null,  
+    level_id int references levels(level_id) not null  
+);  
+  
+create table options (  
+    option_id bigserial primary key ,  
+    description text not null,  
+    question_id bigint references questions(question_id) not null,  
+    is_answer bool default(false) not null  
+);
+
+create or replace procedure sp_insert_question(text, int, text, bool, text, bool, text, bool, text, bool)  
+language plpgsql  
+as $$  
+    declare  
+        question_id bigint;  
+    begin  
+        insert into questions (description, level_id) values ($1, $2);  
+  
+        question_id = currval('questions_question_id_seq');  
+  
+        call sp_insert_option(question_id, $3, $4);  
+        call sp_insert_option(question_id, $5, $6);  
+        call sp_insert_option(question_id, $7, $8);  
+        call sp_insert_option(question_id, $9, $10);  
+    end;  
+$$;
+
+create or replace procedure sp_insert_option(bigint, text, bool)  
+language plpgsql  
+as $$  
+    begin  
+        insert into options (question_id, description, is_answer) values ($1, $2, $3);  
+    end;  
+$$;
+```
+
+
+Yetkilendirme komutları:
+
+```sql
+grant usage on schema public to oguz;  
+alter procedure sp_insert_question(text, int, text, bool, text, bool, text, bool, text, bool) security definer set search_path = public;  
+grant execute on procedure sp_insert_question(text, int, text, bool, text, bool, text, bool, text, bool) to oguz;
+```
+
+Burada kullanıcının `sp_insert_option` çağırma yetkisinin olması gerekmediğine dikkat ediniz.
