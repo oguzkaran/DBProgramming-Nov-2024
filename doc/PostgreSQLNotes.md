@@ -4214,7 +4214,7 @@ $$
 ```
 
 
-##### PostgreSQL Kullanıcı İşlemleri:
+##### Kullanıcı İşlemleri:
 
 >PostgreSQL'de bir kullanıcıya genel olarak **role** denilmektedir. Bir kullanıcı yaratmak için `create role` cümlesi	kullanılır. Bir role silmek için `drop role` cümlesi kullanılır. PostgreSQL'de ayrıca **grup** da oluşturulabilmektedir. PostgreSQL 8.1 versiyonu ile birlikte kullanıcılar gruplar ile brilikte `role` şemsiyesi altında toplanmışlardır. Bir role yaratıldığında server üzerindeki tüm veritabanları için geçerli durumdadır. Tüm rollere ilişkin bilgiler şu sorgu ile elde edilebilir:
 
@@ -4260,7 +4260,7 @@ create role ismail login password '123456' connection limit 1000;
 
 Bir role drop role cümlesi ile silinebilir. Şüphesiz bu cümleyi createrole attribute'una sahip olan bir role çalıştırabilir.
 
-##### PostgreSQL Yetkilendirme İşlemleri
+##### Yetkilendirme İşlemleri
 
 PostgreSQL'de bir kullanıcının erişebildiği veritabanı elemanları (tablo, view vb.) ile her türlü işlemi yapması	istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme yapamaması istenebilir. Bu tip yetkiler için kullanılan komutlara "grant/revoke privilidges" komutları denilmektedir. PostgreSQL üzerinde bu komutlar oldukça detaylıdır. Burada en çok kullanılanlar anlatılacaktır. Bu komutların çalıştırılabilmesi için `rolsuper` attribute'una sahip olunması gerekir. Burada anlatılanlar öğrenildikten sonra diğer detaylar için dökümanlar	yeterli olacaktır. Bir user'ın (yani bir role'ün) ilk yaratıldığında hiç bir işlem yapmaya yetkisi yoktur. Burada yetki kavramı için **grant access** terimi kullanılmaktadır. O halde bir kullanıcı yaratıldığında yapabileceği işlemlere ilişkin yetkiler verilmeldir. Yetki verme komutlarına **grant**, yetkiyi geri alma komutlarına da **revoke** komutları denir.
 
