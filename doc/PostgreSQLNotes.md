@@ -4383,7 +4383,6 @@ alter procedure sp_insert_option(bigint, text, bool) security definer set search
 grant execute on procedure sp_insert_option(bigint, text, bool) to oguz;
 ```
 
-
 Aşağıdaki `questions` ve `options` tablolarına `sp_insert_question` ile insert yapılabilmesi için gereken minimal grant komutlarını inceleyiniz:
 
 ```sql

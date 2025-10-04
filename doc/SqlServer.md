@@ -3016,3 +3016,99 @@ returns table
 as  
     return (select description from options where question_id = @question_id and is_answer = 1)
 ```
+
+##### Kullanıcı (login) İşlemleri
+
+MSSQL'de **login** yaratarak bir takım yetkilendirmeler yapılabilir. Her login başka bir login yaratma yetkisine sahip olmaz. İleride ele alacağımız `role` kavramı ile bu işlemlerin nasıl yapıldığı anlaşılacaktır. Bir login `create login` cümlesi ile yaratılır. Tipik olarak Windows ortamında `Windows Authentication` veya `sa`, Windows dışı ortamlarda, docker içerisinde `sa` login'i ile bağlanılarak login yaratılabilir.
+
+Aşağıdaki örnekte bekir isimli login default haklarla yaratılmıştır. `SQL Server Authentication` ile bağlanabilir. Ancak henüz hiç bir veritabanına erişemez. Örnekte aneta isimli login bağlantı sırasında kullanabileceği default database ile yaratılmıştır. Ancak aneta login'inin bu veritabanına erişebilmesi için, hatta giriş yapabilmesi için (authentication) veritabanın hangi login tarafından erişilebilir olduğunu bilmesi gerekir. Bu işlem veritabanı aktifken `create user` cümlesi ile yapılabilir. Şüphesiz create user ile yazılan login'in daha önceden var olması gerekir. Özetle örneğin irem isimli login'in connect olabilmesi için:
+1. Eğer default db ile yaratıldıysa default db olarak belirlenen veritabanının irem isimli user'ı bilmesi gerekir. Böylelikle bağlantı sağlanabilir. irem isimli login bağlantıdan sonra eğer başka bir veritabanına erişim yetkisi verilmemişse, default db ile belirlenen veritabanına `belirli ölçüde` erişebilir. default_database ile login yaratılması durumundaki bağlantı işlemi sistemden sisteme değişiklik gösterebilmektedir.
+2. Default db ile yaratılmadıysa bu durumda bağlantı sağlanır. Yalnızca erişim yetkisi verilen veritabanlarına belirli ölçüde erişilebilir.
+
+Komutlar:
+```sql
+create login bekir with password='123456'
+```
+
+```sql
+create login aneta with password='Csystem-1993', default_database=invoicedb
+```
+
+```sql
+use invoicedb
+
+create user aneta
+```
+
+```sql
+create user baris
+```
+
+
+Bir login'in şifresi aşağıdaki gibi alter login cümlesi ile değiştirilebilir
+
+```sql
+alter login bekir with password='Bekir-2025'
+```
+
+MSSQL Server'da roller yani kullanım hakları aşağıdaki gibidir:
+**bulkadmin:** Server üzerinde BULK INSERT cümlesini çalıştırma yetkisine sahiptir. BULK INSERT cümlesi ileride ele alınacaktır.
+
+**dbcreator:** Server üzerinde bir veritabanını yaratma (create), değiştirme (alter), silme (drop) ve geriye alma (restore) yetkisine sahiptir.
+
+**diskadmin:** Disk üzerinde SQL Server'ın kullandığı dosyaları yönetme yetkisine sahiptir
+
+**processadmin:** SQL Server'ın "instance"'ı içerisinde çalıştırılan process'leri sonlandırabilme (end process) yetkisine sahiptir.
+
+**public:** Her login default olarak bu role sahiptir. Bu rol diğer rollerden farklıdır.
+
+**securityadmin:** login işlemlerini ve özelliklerini yönetebilme hakkına sahiptir.
+
+**serveradmin:** Server genelinde (server-wide) bir takım konfigürasyonları değiştirebilme ve server'ı kapatabilme yetkisine sahiptir.
+
+**setupadmin:** Server'a bağlı diğer server'ları (linked server) ekleme ve silebilme yetkisine sahiptir. Bu silme işlemini T-SQL cümleleri ile yapabilir. Ancak Azure Studio ya da başka bir araç üzerinde yapılabilmesi için sysadmin yetkisine de sahip olunması gerekir.
+
+**sysadmin:** Server üzerinde tüm işlemleri yapma yetkisine sahiptir.
+
+`sp_helpsrvrolemember` ile bir role ilişkin tüm kullanıcılar elde edilebilir
+
+```sql
+exec sp_helpsrvrolemember 'setupadmin'
+```
+
+
+Bir login'e rol belirlemek için alter server cümlesi aşağıdaki kullanılabilir.
+
+```sql
+alter server role securityadmin add member irem
+```
+
+```sql
+alter server role dbcreator add member bekir
+```
+
+##### Yetkilendirme İşlemleri
+
+Veritabanı yönetim sistemi içerisinde bir kullanıcının erişebildiği veritabanında bulunan tablo, view vb. elemanlar üzerinde her türlü işlemi yapması istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme işlemini yapmaması istenebilir. Bu tip işlemleri yapabilmek amacıyla kullanılan komutlara genelolarak "grant/revoke privileges" komutları denir. Bu komutlar "securityadmin" rolü ile kullanılabilmektedir. SQL Server'da bu komutlar oldukça detaylıdır. Burada en çok kullanılan biçimleri üzerinde durulacaktır. Bunlar öğrenildikten sonra diğer detaylar dökumantasyonlardan kolaylıkla öğrenilebilir. Bir login için kullanabildiği veritabanı üzerinde default olarak hiç bir "grant access" verilmemiştir. O kullanıcı için veritabanı üzerinde yapabilecekleri grant komutu ile belirlenebilir. Ya da yetkileri revoke komutu ile geri alınabilir.
+
+
+Tablo için grant komutları:
+    Tablo için grant komutları bir kullanıcının "insert, select, update, delete, references, alter ve all" izinlerini
+    yönetmek için kullanılır. Bu yetkiler grant komutu ile verilir. Yetkiler aşağıdakilerden biri olabilir:
+
+    Yetki                    Açıklama
+    select                   Tabloda select işlemlerinin yapılabilmesi yetkisidir
+    insert                   Tabloda insert işlemlerinin yapılabilmesi yetkisidir
+    update                   Tabloda update işlemlerinin yapılabilmesi yetkisidir
+    delete                   Tabloda delete işlemlerinin yapılabilmesi yetkisidir
+    references               Bu tabloya başka bir tablodan referans verme (foreign key oluşturma) yetkisidir
+    all                      Yukarıdakilerin tamamını doğrudan verebilme yetkisidir
+
+    grant komutunun genel biçimi şu şekildedir:
+
+        grant <yetki listesi> on <tablo ismi> to <login>
+
+    grant komutu rollere de atanabilmektedir. Örneğin:
+        grant select on people to public
+
+    cümlesi ile ilgili tabloyu kullanan public role sahip tüm kullanıcılar için bu yetki tanımlanmış olur
