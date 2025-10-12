@@ -3089,7 +3089,7 @@ alter server role dbcreator add member bekir
 
 ##### Yetkilendirme İşlemleri
 
-Veritabanı yönetim sistemi içerisinde bir kullanıcının erişebildiği veritabanında bulunan tablo, view vb. elemanlar üzerinde her türlü işlemi yapması istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme işlemini yapmaması istenebilir. Bu tip işlemleri yapabilmek amacıyla kullanılan komutlara genelolarak "grant/revoke privileges" komutları denir. Bu komutlar "securityadmin" rolü ile kullanılabilmektedir. SQL Server'da bu komutlar oldukça detaylıdır. Burada en çok kullanılan biçimleri üzerinde durulacaktır. Bunlar öğrenildikten sonra diğer detaylar dökumantasyonlardan kolaylıkla öğrenilebilir. Bir login için kullanabildiği veritabanı üzerinde default olarak hiç bir "grant access" verilmemiştir. O kullanıcı için veritabanı üzerinde yapabilecekleri grant komutu ile belirlenebilir. Ya da yetkileri revoke komutu ile geri alınabilir.
+Veritabanı yönetim sistemi içerisinde bir kullanıcının erişebildiği veritabanında bulunan tablo, view vb. elemanlar üzerinde her türlü işlemi yapması istenmeyebilir. Örneğin bir kullanıcının bir tabloda sorgu yapabilmesi ancak silme işlemini yapmaması istenebilir. Bu tip işlemleri yapabilmek amacıyla kullanılan komutlara genelolarak "grant/revoke privileges" komutları denir. Bu komutlar "securityadmin" rolü ile kullanılabilmektedir. SQL Server'da bu komutlar oldukça detaylıdır. Burada en çok kullanılan biçimleri üzerinde durulacaktır. Bunlar öğrenildikten sonra diğer detaylar dokümantasyonlardan kolaylıkla öğrenilebilir. Bir login için kullanabildiği veritabanı üzerinde default olarak hiç bir "grant access" verilmemiştir. O kullanıcı için veritabanı üzerinde yapabilecekleri grant komutu ile belirlenebilir. Ya da yetkileri revoke komutu ile geri alınabilir.
 
 
 Tablo için grant komutları:
@@ -3112,3 +3112,91 @@ Tablo için grant komutları:
         grant select on people to public
 
     cümlesi ile ilgili tabloyu kullanan public role sahip tüm kullanıcılar için bu yetki tanımlanmış olur
+
+##### Indeksler
+
+Index, veritabanında genel olarak tablolar üzerinde tanımlanan ve ilgili veriye daha az işlem yaparak, dolayısıyla hızlı bir şekilde erişilmesini sağlayan bir araçtır. Aynı zamanda indeks bir veritabanı elemanıdır. İndeksleme çeşitli biçimlerde olabilmektedir. Hangi biçimde olursa olsun temel hedef `veriye hızlı erişmektir.` Primary key ve foreign key alanları default olarak indekslenir. Programcı isterse başka alanları indeksleyebilir. Örneğin bir tabloda telefon    numarasına göre kayıtların sıralı olmadığını düşünelim. Bu durumda bir telefon numarasını aramak (sorgulamak) tüm kayıtlara bakmayı gerektirebilecektir. Ancak telefon numaraları sıralı olsaydı aranan telefon numarası daha efektif algoritmalar kullanılarak hızlı bir biçimde bulunabilirdi. Bu durumda veri sayısı büyüse bile işlem efektif olmaya devam edecekti. Burada `binary search` algoritması örnek olarak verilebilir. İşte böyle bir örnekte verilerin telefon  numarasına göre sıralı tutulması indeks kullanarak yapılabilir.
+###### Indekse İlişkin Temel Kavramlar:
+
+Yeni bir veritabanı yaratıldığında veritabanına ilişkin dosyalar da yaratılır. Aynı zamanda hangi dosyaların olduğu da belirtilmiş olur. SQL Server, bu dosyaları mantıksal olarak 8KB'lık sayfalara (page) böler. Bu sayfalara sıfırdan başlayan indeks numarası verir. Bu işlem işletim sisteminin dosya sisteminden (file system) bağımsızdır. Yani teorik  olarak `her işletim sisteminde bu şekildedir` denebilir. Sayfalar içerisinde satırlar (row) bulunur. Peş peşe gelen 8 tane 8KB'lik veri yapısına `extent` denir. Her sayfanın satır sayısı aynı değildir. Sayfalar içerisinde satırların uzunlukları ve sayıları veri büyüklüğüne göre değişebilmektedir. Bir satır bir sayfa içerisinde bulunur. Aslında aşağı seviyede önce satırlara değil sayfalara erişilir. Sayfalara ilişkin detaylar bununla sınırlı değildir. Belirli ölçüde ele alınmıştır.
+
+Bir tablo için indeks tanımlandığı zaman o tablodaki veriler bir `ağaç (tree)` veri yapısı olarak düzenlenir. Çeşitli ağaç veri yapıları vardır: binary tree, red-black tree vb. Bu çeşitlilik algoritmaya göre avantajlı ya da dezavantajlı olma durumuna göredir. Ancak nasıl bir ağaç olursa olsun temel hedef hızdır. Şüphesiz yalnızca ağaç veri yapısı kullanılmaz. Duruma göre başka veri yapıları da kullanılmaktadır.
+
+**Anahtar Notlar:** Yukarıda anlatılan içsel detaylar sürüme göre değişiklik gösterebilmektedir. Burada daha genel olan içsel detaylar üzerinde durulmuştur.
+###### Indeks Çeşitleri:
+
+SQL Server'da indeksler temel olarak iki gruba ayrılır: **clustered, non-clustered index**. Index için kullanılan veri yapısının (genel olarak tree) her bir elemanının içerisinde tutulan değer, verinin kendisi ise clustered, verinin adresi (hangi sayfada olduğu bilgisi) ise non-clustered indekstir.
+
+**Clustered Index:** Clustered index veriyi fiziksel olarak sıralar. Bir tablo için clustered index yaratılabilir. Clustered index için  belirlenecek alanların sorgularda en fazla kullanılan alanlar olmasına dikkat edilmelidir. Veriler bu alanlara göre fiziksel olarak sıralandığından çok hızlı erişim sağlanır. Bununla birlikte indekslenen alanların mümkün olduğunca az değiştirilen alanlar olması önerilir. Çünkü indekslenen bir alanın değişmesi durumunda tüm indeks yeniden düzenlenecek yani yeniden sıralanacaktır. Bu sıralama fiziksel olarak yapıldığından değiştirme işlemi görece maliyetli olabilir. Aslında SQL Server indeks ihtiyacını kendisi belirleme eğilimdedir. Programcının tanımladığı indeksleri kullanıp kullanmayacağını da belirleme eğilimindedir. Clustered index `create clustered index` cümlesi kullanılarak yaratılabilir:
+
+```sql
+create clustered index idx_sensor_host_port on sensors(host, port)
+```
+    
+**Non-clustered Index:** Bu indekslemede veriler fiziksel değil mantıksal olarak sıralanır. Mantıksal sıralama adresler ile yapılır. Bir tablo için genel olarak en fazla `999` tane non-clustered indeks yaratılabilir. Bu sayı şüphesiz sürüme göre değişiklik gösterebilir. Bu indeks ile veriye doğrudan erişilmez. Aşağı seviyede genel olarak heap üzerinden veya bir clustered indeks üzerinden erişilebilir. Bu sebeple sorgudaki koşul kısmında (genel olarak where clause) çok kullanılan alanların bu şekilde indekslenmesi önerilir. Non-clustered index `create nonclustered index` cümlesi kullanılarak yaratılabilir:
+
+```sql
+  create nonclustered index idx_sensor_host_port on sensors(host, port)
+```
+
+   SQL Server'da bir indeks en fazla 16 tane alan içerebilir ve toplam uzunluğu 900B'ı geçemez. SQL Server'da `varchar(max), nvarchar(max), text, image ve xml` türündeki alanlar indekslenemez.
+
+**Unique Index:** Verinin tekil olması için kullanılan indekstir. Verinin tekrarını engeller ve tanımlandığı için veriye erişimi de hızlandırır. Bir tablodaki primary key ve unique alanlar için otomatik olarak unique index yaratılır. Bu index birden fazla alan için tanımlandığında tekillik tek bir alan üzerinden değil indekslenen alanlar üzerinden yapılır. Indekslenen alanlar nullable ise sadece bir kez null değeri verilebilir. Clustered ya da non-clustered olarak unique index yaratılabilir. Unique bir index create unique index cümlesi ile yaratılabilir:
+
+```sql
+create unique index idx_enrolls_student_id_lecture_id on enrolls(student_id, lecture_id)
+```
+    
+**Filtered Index:**  Bu indeks, tüm tablo yerine belirlenen koşula uyan veriler için tanımlanır. Bu durumda hem performans artar hem de  indeks düzenleme işlemi belirli bir grup veri için yapılacağından görece hızlı olur. Filtered index aşağıdaki gibi yaratılabilir:
+
+```sql
+create nonclustered index idx_sensor_host_port on sensors(host, port) where port > 1024
+```
+
+**Composite Index:** Tablo üzerinde birden fazla alan için tanımlanan indekstir. Bu index clustered veya non-clustered olabilmektedir. Bu indekste alanların yazılma sırası önemlidir. Çeşitliliği fazla olan alanlar başa yazılmalıdır. Composite bir index aşağıdaki gibi yaratılabilir:
+
+```sql
+    create nonclustered index idx_sensor_host_port on sensors(host, port)
+```
+
+**Covered Index:** Bir sorguda erişmek istenilen alanlar indeks tanımında varsa, bu indeks ile birlikte veriye doğrudan erişmek için kullanılır. Bu erişim için, aşağı seviyede organize edilen ağaç veri yapısının `yaprak düğümleri (leaf node)` kullanılır. Ancak indekslenmemiş alanlar için önce indekslenmiş olan yani indeks koşuluna uyan alanlar çekilir ve anahtar değeri (key) belirlenir. Daha sonra bu anahtar değeri ile indekslenmemiş alanlara ilişkin değerlere erişilir. Bu arama işlemine `key lookup` denir. SQL Server indeklenmemiş alana yukarıdaki gibi erişirken fazladan işlem yapar. Bu fazlalık okuma yazma (I/O) işlemlerini artırabileceğinden performansı olumsuz etkileyebilir. Bu durumda ilk akla composite indeks gelebilir. Bilindiği gibi composite indekslerde 16 alan ve 900 byte sınırı vardır. Bu sınırların aşılması durumunda composite indeksleme yapılamaz. Aynı zamanda birden fazla alanın indekslenmesi indeks boyutunu artırır ve insert delete ve update gibi işlemlerde indeks organizasyonu yani sıralaması yeniden yapılacağından yine performans olumsuz etkilenebilir. İşte bu durumda aslında indekslenmeyen ancak burada anlatıldığı gibi bir arama durumunda performansı da olumsuz etkilemeyen covered indeks kullanılabilir. Covered indeks aşağıdaki gibi yaratılabilir:
+
+```sql
+create nonclustered index idx_sensor_host_port on sensors(host, port) include (name, latitude, longitude)
+```
+
+Burada include komutu ile indeklenmemiş ve sorgu içerisinde kullanılan alanlar belirtilmiştir. Artık bu şekilde indeks yaratıldıktan sonra SQL Server herhangi bir anahtar ile arama yapmaz. SQL Server'da `varchar(max), nvarchar(max), text, image ve xml` alanları indekslenemez ancak include ile kullanılarak hızlandırılabilir. Özellikle yoğun sorgularda mümkünse az alan kullanmak iyi bir tekniktir. include için seçilecek alanlarda dikkatli olunması gerekir. Aksi durumda performans olumsuz etkilenebilir.
+
+**Full-text indeks:** Bu indeksleme text tabanlı aramalarda kullanılır. Örneğin like operatörü text büyüdükçe performansı olumsuz etkiler. Özellikle çok fazla uzunlukta veri içeren alanlar için tercih edilebilir.
+
+**Column Store Index:** Bu indeksleme diğer indekslemelerdeki gibi satır tabanlı (row based) değil, alan tabanlı (column/field based) yapılır. Diğer indekslemelere göre disk üzerinde yer kaplama (storage) maliyeti düşüktür. Bu indeksleme veri üzerinde insert, delete ve update gibi işlemlerin az yapıldığı, daha çok okuma işleminin yapıldığı durumlarda ve filtreleme ve gruplama gibi işlemlerin yoğun olduğu durumlarda tercih edilir. Column store index aşağıdaki gibi yaratılabilir:
+
+```sql
+create columnstore index idx_sensor_host_port on sensors(host, port)
+```
+###### İndeksin Olası Dezavantajları
+
+ İndeksin avantajları olduğu kadar dezavantajları da vardır. Programcının bu dezavantajları da bilerek indeksleme konusunda dikkatli olması gerekir. Tipik dezavantajlar şu şekilde özetlenebilir:
+ - Her indeks yaratıldığında veritabanı üzerinde ayrıca yer tutar. Bu da duruma göre disk alanının yetersiz kalmasına sebep olabilir.
+ 
+ - Bir indeks yaratıldığında veya indeks düzenleme sırasında ilgili tablo kilitlenir. Bu durumda diğer işlemler de  yapılamaz duruma gelir.
+ 
+ - Her insert, delete ve update işlem, için indeksin yeniden düzenlenmesi gerekir.  Bu durumda veriye erişmek hızlı olur, ancak insert delete ve update işlemleri performans açısından olumsuz etkilenebilir. İndekslemede alan sayısı insert, delete ve update işlemlerinde performansı doğrudan etkiler.
+ 
+ - İndeks yaratma ve düzenleme işlemi veri büyüklüğüne ve sayısına bağlı olarak kısa ya da uzun sürebilir.
+
+###### İndekslemede Dikkat Edilmesi Gereken Durumlar
+
+- Veri üzerinde çok fazla insert, delete ve update işlemlerinin yapıldığı tablolarda ne kadar az indeksleme yapılırsa performans olumlu etkilenir.
+
+- İndekslenen bir alanda ne kadar tekrarlı veri varsa indeks performansı olumsuz etkilenir.
+
+-  Clustered indeks mümkün olduğunca az alan için kullanılmalıdır. Bunun en ideal durumu unique ve null değeri içermeyen alanlardır.
+
+- Composite indekslerde alanların sırasına dikkat edilmelidir.
+
+- Hesaplanan alanlar için gerekirse indeksleme yapılabilir.
+
+- İndekslenen alanlar dikkatli seçilmeldir.
+
+**Anahtar Notlar:** İndeksleme işlemlerinde, burada anlatılanlar dışında da bir takım detaylar vardır. 
