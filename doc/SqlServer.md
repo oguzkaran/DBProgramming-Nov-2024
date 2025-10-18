@@ -3197,6 +3197,61 @@ create columnstore index idx_sensor_host_port on sensors(host, port)
 
 - Hesaplanan alanlar için gerekirse indeksleme yapılabilir.
 
-- İndekslenen alanlar dikkatli seçilmeldir.
+- İndekslenen alanlar dikkatli seçilmelidir.
 
 **Anahtar Notlar:** İndeksleme işlemlerinde, burada anlatılanlar dışında da bir takım detaylar vardır. 
+##### Backup & Restore İşlemleri:
+
+SQL Server'da backup için çeşitli yöntemler bulunmaktadır. Bunlardan sık kullanılanları şunlardır:
+- Full
+- Differential
+- Transaction Log
+- Tail Log
+
+Bunlar dışında başka backup türleri de vardır. Bazıları şunlardır:
+- Copy-only backup
+- File backup
+- Partial backup
+
+**Full Backup:** Bu yöntemde veritabanı elemanları (table, view, SP, function, trigger vb) dahil her şey yedeklenir.Bu durumda veritabanı geri alması (restore) daha kolay olmaktadır. Bu backup duruma göre zaman alabilir.
+    Full backup için şu komut kullanılır:
+
+```sql
+backup database schooldb to disk='C:\db\schooldb.bak' with format
+```
+	
+Bu komutun başka ayrıntıları da vardır. Bunlar dokümanlardan öğrenilebilir.
+
+Backup yapılmış bir veritabanını geriye almak için restore komutu kullanılır:
+
+```sql
+restore database schooldb from disk='C:\db\schooldb.bak'
+```
+
+backup komutu with compression seçeneği ile de kullanılabilmektedir. Ancak bu seçenek SQLServer community edition'da desteklenmemektedir:
+
+```sql
+backup database schooldb to disk='C:\db\schooldb_compp.bak' with format, compression
+```
+
+**Differential Backup:** Son full backup'dan itibaren yapılan değişiklikleri yedeklemek için kullanılabilir. Yani her şey yedeklenmez. Bu işlem için de yine backup komutu kullanılır:
+```sql
+backup database schooldb to disk='C:\db\schooldb.bak' with differential
+```
+
+**Transaction Log:** Bu backup işleminde yapılan transaction'lara ilişkin kayıtlar (log) tutulur. Bu işlem için de yine  backup komutu kullanılır:
+
+```sql
+backup log schooldb to disk='C:\db\schooldb.bak' with format
+```
+
+log backup işlemi differential olarak yapılamaz.
+
+**Tail Log Backup:** Bu backup'da loglama işlemi için kullanılır. Yine backup komutu ile yapılmaktadır. CONTINUE_AFTER_ERROR seçeneği ile her hangi bir problem oluştuğunda akış devam etmekle birlikte SQL Server'da bir log dosyası oluşturulur:
+
+```sql
+backup log schooldb to disk='C:\db\schooldb.bak' with continue_after_error
+```
+
+
+   

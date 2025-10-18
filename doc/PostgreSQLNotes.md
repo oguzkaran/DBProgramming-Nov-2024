@@ -4442,3 +4442,24 @@ grant execute on procedure sp_insert_question(text, int, text, bool, text, bool,
 ```
 
 Burada kullanıcının `sp_insert_option` çağırma yetkisinin olması gerekmediğine dikkat ediniz.
+
+##### truncate Cümlesi
+
+truncate cümlesi bir tablonun verilerini siler aynı zamanda tabloyu ilk kez create ediliyormuş gibi sıfırlayabilmek	için de kullanılır. truncate cümlesi doğrudan kullanıldığında ilgili tablodaki verileri siler ancak otomatik artan alanlar için kalınan yeri sıfırlamaz. truncate cümlesi cascade ile kullanıldığında ilişkili olduğu veri varsa onları da	siler. Yine otomatik artan alanlar için kalınan yeri sıfırlamaz. truncate cümlesine restart identity eklendiğinde otomatik artan alanlar için kalınan yeri sıfırlar
+
+```sql
+create table staff (
+	staff_id serial primary key,
+	citizen_id char(40) unique not null,
+	first_name varchar(100) not null,
+	last_name varchar(100) not null,
+	birth_date date not null,
+	phone char(20) not null
+);
+
+
+truncate staff; -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanmaz
+truncate staff cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki verileri de siler. Otomatik artan id sıfırlanmaz
+truncate staff restart identity; -- -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanır
+truncate staff restart identity cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki verileri de siler. Otomatik artan id sıfırlanır
+```
