@@ -3254,7 +3254,7 @@ backup log schooldb to disk='C:\db\schooldb.bak' with continue_after_error
 ```
 ##### sqlcmd Programı
 
-sqlcmd SQLServer için bir komut yorumlayıcı (command prompt) uygulamadır. Bu tarz komut yorumlayıcı programlara **REPL (Read, Evaluate, Print, Loop)** da denilmektedir. sqlcmd Windows sistemlerinde genel olarak SQL Server kurulduğunda yüklenir. Programcı isterse sqlcmd'yi hiç SQLServer yüklenmemiş bir sisteme de yükleyebilir. sqlcmd Windows, MacOS X ve Linux sistemlerine yüklenebilmektedir: [sqlsmd install](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-download-install?view=sql-server-ver17&tabs=linux)
+sqlcmd SQLServer için bir komut yorumlayıcı (command prompt) uygulamadır. Bu tarz komut yorumlayıcı programlara **REPL (Read, Evaluate, Print, Loop)** da denilmektedir. sqlcmd Windows sistemlerinde genel olarak SQL Server kurulduğunda yüklenir. Programcı isterse sqlcmd'yi hiç SQLServer yüklenmemiş bir sisteme de yükleyebilir. sqlcmd Windows, MacOS X ve Linux sistemlerine yüklenebilmektedir: [sqlcmd install](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-download-install?view=sql-server-ver17&tabs=linux)
 
 sqlcmd ile bir IDE olmadan da veritabanı işlemleri yapılabilmektedir. Şüphesiz bu programın görseli çok iyi değildir. Çok karmaşık işlemlerin yapılması görece zahmetlidir. Dolayısıyla programcı açısından gerektiğinde kullanmak üzere öğrenilmelidir. Sürekli kullanılması zaman kaybına yol açabilir. Burada sqlcmd, pratikte gerekebilecek kadar ele alınacaktır. Diğer detaylar için [dokümanlar](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-utility?view=sql-server-ver17&tabs=go%2Cwindows-support&pivots=cs1-bash) incelenebilir. sqlcmd'nin bazı yararlı komutları şunlardır:
 
