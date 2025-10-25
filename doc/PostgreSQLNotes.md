@@ -4463,3 +4463,5 @@ truncate staff cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki veri
 truncate staff restart identity; -- -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanır
 truncate staff restart identity cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki verileri de siler. Otomatik artan id sıfırlanır
 ```
+
+

@@ -3252,6 +3252,64 @@ log backup işlemi differential olarak yapılamaz.
 ```sql
 backup log schooldb to disk='C:\db\schooldb.bak' with continue_after_error
 ```
+##### sqlcmd Programı
 
+sqlcmd SQLServer için bir komut yorumlayıcı (command prompt) uygulamadır. Bu tarz komut yorumlayıcı programlara **REPL (Read, Evaluate, Print, Loop)** da denilmektedir. sqlcmd Windows sistemlerinde genel olarak SQL Server kurulduğunda yüklenir. Programcı isterse sqlcmd'yi hiç SQLServer yüklenmemiş bir sisteme de yükleyebilir. sqlcmd Windows, MacOS X ve Linux sistemlerine yüklenebilmektedir: [sqlsmd install](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-download-install?view=sql-server-ver17&tabs=linux)
 
-   
+sqlcmd ile bir IDE olmadan da veritabanı işlemleri yapılabilmektedir. Şüphesiz bu programın görseli çok iyi değildir. Çok karmaşık işlemlerin yapılması görece zahmetlidir. Dolayısıyla programcı açısından gerektiğinde kullanmak üzere öğrenilmelidir. Sürekli kullanılması zaman kaybına yol açabilir. Burada sqlcmd, pratikte gerekebilecek kadar ele alınacaktır. Diğer detaylar için [dokümanlar](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-utility?view=sql-server-ver17&tabs=go%2Cwindows-support&pivots=cs1-bash) incelenebilir. sqlcmd'nin bazı yararlı komutları şunlardır:
+
+- sqlcmd programı doğrudan çalıştırıldığında "Windows Authentication" bağlantısı olarak komut satırına düşer.
+
+- - U ve P seçeneleri ile login ve password bilgileri verilerek ilgili server'a bağlanılabilir:
+
+```sql
+sqlcmd -S . -U burak -P csd1993
+```
+
+```sql
+sqlcmd -S 192.168.1.123,1434 -U burak -P csd1993
+```
+
+- Komut satırından istenilen bir T-SQL cümlesi yazıldığında hafızaya alınır. 
+
+- go komutu ile son hafızaya alınmış tüm T-SQL cümleleri sırasıyla çalıştırılır. Hafızadaki cümle hatalı ise uygun hata mesajı verilir. go komutundan sonra artık hafızada cümle kalmamıştır.
+
+- sqlcmd q seçeneği ile çalıştırıldığında ilgili cümle veritabanına gönderilir. Örneğin:
+
+```sql
+sqlcmd -q "use testdb; select * from staff"
+```
+
+```sql
+sqlcmd -S 161.97.141.113,1434 -U sa -P Csystem-1993 -q "use testdb; select * from people"
+```
+
+- Bir SP parametresiz ise ismi verilerek doğrudan exec yapılabilir. Örneğin
+```sql
+sqlcmd -S . -q "sp_databases"
+```
+
+- sqlcmd programına ilişkin yardım almak için ? seçeneği kullanılabilir:
+
+```sql
+sqlcmd -?
+```
+
+- i seçeneği yolu belirtilen dosya içerisindeki script çalıştırılabilir.
+
+- S seçeneği ile istenilen bir server'a bağlanılabilir. 
+
+- o seçeneği ile çıktılar istenilen bir dosyaya yazdırılabilir. Örneğin:
+
+```sql
+sqlcmd -S . -i "staff.sql" -o "result.txt"
+```
+
+- sqlcmd komut yorumlayıcısı içerisindeyken :r ile dosyadan okuma yapılıp çalıştırılabilir. Örneğin
+
+```
+1>:r staff.txt
+```
+
+- q seçeneği ile bir SP ismi verildiğinde exec işlemi yapılır
+
