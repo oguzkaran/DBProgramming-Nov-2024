@@ -4460,8 +4460,86 @@ create table staff (
 
 truncate staff; -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanmaz
 truncate staff cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki verileri de siler. Otomatik artan id sıfırlanmaz
-truncate staff restart identity; -- -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanır
+truncate staff restart identity; -- İlgili tablodaki tüm verileri siler. Otomatik artan id sıfırlanır
 truncate staff restart identity cascade; -- Varsa ilişkili olduğu tüm diğer tablolardaki verileri de siler. Otomatik artan id sıfırlanır
 ```
+
+##### psql Programı
+
+psql PostgreSQL için bir komut yorumlayıcı (command prompt) uygulamadır. Bu tarz komut yorumlayıcı programlara **REPL (Read, Evaluate, Print, Loop)** da denilmektedir. psql çeşitli sistemlere kurulabilmektedir. Tipik olarak PostgreSQL'in default kurulumunda ilgili sisteme de kurulmaktadır. 
+
+psql ile bir bağlantı şu şekilde yapılabilir:
+
+```sql
+psql -h <host> -U <user> -d <dbname>
+psql -h <host> -U <user> -p <port> -d <dbname>
+```
+Örneğin:
+```sql
+psql -h 161.97.141.113 -U postgres
+```
+
+```sql
+psql -h 161.97.141.113 -p 5435 -U postgres
+```
+Burada tipik olarak user'ın password bilgisi istenecektir. Başka bir bağlantı yöntemi de şu şekilde olabilmektedir:
+
+```sql
+psql "postgresql://postgres:csystem-1993@161.97.141.113:5435/postgres"
+```
+
+Bu kullanım ile url üzerinden doğrudan bağlantı sağlanabilmektedir. psql sürümü `--version` seçeneği ile elde edilebilir. 
+
+psql'de ismine `meta command` denilen bazı özel komutlar bulunmaktadır. Bu komutlar psl bağlantısı sağlandıktan sonra çalıştırılabilmektedir. Bu komutlar `\` ile başlar ve sonrasında özel karakter ya da karakterler alır. Önemli meta-command'ler şunlardır.
+
+
+| Komut               | Açıklama                                              |
+| ------------------- | ----------------------------------------------------- |
+| `\?`                | psql yardım                                           |
+| `\dt`               | Tabloları listeleme                                   |
+| `\l+`               | Veritabanlarını listeleme                             |
+| `\q`                | Çıkış                                                 |
+| `\i <dosya adı>`    | Dosyadaki sql komutunu çalıştırma                     |
+| `\c <veritabanı>`   | Veritabanı değiştirme                                 |
+| `\df+`              | Fonksiyonları ya da SP'leri  detaylı olarak listeleme |
+| `\du+`              | Kullanıcı/rolleri listeleme                           |
+| `\! <shell komutu>` | Bir shell komutu çalıştrma                            |
+| `\d <tablo ismi>`   | Tablonun genel yapısını gösterme                      |
+| `\h <sql command>`  | sql komutunun yardımı                                 |
+| `\dn+`              | Şemaları gösterme                                     |
+| `\copy`             | Verileri dosyaya kopyalama işlemi                     |
+Örneğin:
+
+```sql
+\copy categories to './categories.csv'
+\copy categories to './categories.csv' csv header
+```
+Bir plpgsql komutu doğrudan komut satırından yazılıp sonuna noktalı virgül koyarak çalıştırılabilir:
+
+```sql
+create table devices (
+	device_id serial primary key,
+	name varchar(200) not null,
+	host varchar(500) not null,
+	port int check(1024 < port and port < 65536) not null,
+	register_date_time timestamp default(current_timestamp) not null
+);
+```
+
+explain komutu ile yapılan işleme detaylar elde edilebilir:
+
+```sql
+explain select * from cities
+```
+
+
+
+
+
+
+
+
+
+
 
 
