@@ -4476,11 +4476,11 @@ psql -h <host> -U <user> -p <port> -d <dbname>
 ```
 Örneğin:
 ```sql
-psql -h 161.97.141.113 -U postgres
+psql -h 161.97.141.133 -U postgres
 ```
 
 ```sql
-psql -h 161.97.141.113 -p 5435 -U postgres
+psql -h 161.97.141.133 -p 5435 -U postgres
 ```
 Burada tipik olarak user'ın password bilgisi istenecektir. Başka bir bağlantı yöntemi de şu şekilde olabilmektedir:
 
@@ -4532,7 +4532,25 @@ explain komutu ile yapılan işleme detaylar elde edilebilir:
 explain select * from cities
 ```
 
+##### PostgreSQL'de İndeksler:
 
+PostgeSQL'de indeksler kullanılabilir. PostgreSQL için indeks komutları şunlardır:
+- create index: Yeni bir index yaratmak için kullanılır.
+- drop index: Bir indeksi silmek için kullanılır.
+- list indexes: Tüm indeksleri listelemek için kullanılır.
+- unique index: unique index oluşturmak için kullanılır. DDL cümlesinde alan belirlenirken de verilebilir.
+- partial index: Parçalı indeklerde kullanılır.
+- reindex: Bir ya da daha fazla indeksi yeniden oluşturmak için kullanılır.
+- multicolumn indexes: Birden fazla alanı indekslemek için kullanılır.
+- index on expression: Bir ifadeye göre indekslemek için kullanılır.
+
+PostgreSQL'de genel olarak 6 tür indeks bulunur:
+- Hash indexes: Eşitlik karşılaştırmasında kullanılır.
+- GIN indexes: Generalized Inverted Indexes (GIN) bir alan için range type, jsonb, array vb. çok fazla değeri olan alanlar için kullanılır.
+- GiST Index: Bu indeks tüm text üzerinde arama (full text search) ve geometrik veri türleri ile kullanılır.
+- SP-GiST indexes: Space Partitioned (SP) GiST indexes parçalı arama ağaçları kullanarak indeksleme yapar. Multimedya,GIS, IP Routing gibi durumlarda kullanılır.
+- B-tree Indexes: Aslında en önemli indekstir. B-Tree özel bir dengelenmiş ağaç (balanced tree) veri yapısıdır. Özellikle `<, <=, >, >=, =, between, in, is null, is not null` gibi operatörler için kullanılır.
+- BRIN indexes: Block Range Indexes, B-Tree'ye göre daha küçük ve daha az maliyeti olan bir indekstir. Çok büyük tablolarda kullanımı tercih edilebilir.
 
 
 
