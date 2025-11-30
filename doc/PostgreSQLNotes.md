@@ -4535,23 +4535,42 @@ explain select * from cities
 ##### PostgreSQL'de İndeksler:
 
 PostgeSQL'de indeksler kullanılabilir. PostgreSQL için indeks komutları şunlardır:
-- create index: Yeni bir index yaratmak için kullanılır.
-- drop index: Bir indeksi silmek için kullanılır.
-- list indexes: Tüm indeksleri listelemek için kullanılır.
-- unique index: unique index oluşturmak için kullanılır. DDL cümlesinde alan belirlenirken de verilebilir.
-- partial index: Parçalı indeklerde kullanılır.
-- reindex: Bir ya da daha fazla indeksi yeniden oluşturmak için kullanılır.
-- multicolumn indexes: Birden fazla alanı indekslemek için kullanılır.
-- index on expression: Bir ifadeye göre indekslemek için kullanılır.
+- **create index:** Yeni bir index yaratmak için kullanılır.
+- **drop index:** Bir indeksi silmek için kullanılır.
+- **list indexes:** Tüm indeksleri listelemek için kullanılır.
+- **unique index:** unique index oluşturmak için kullanılır. DDL cümlesinde alan belirlenirken de verilebilir.
+- **partial index:** Parçalı indekslerde kullanılır.
+- **reindex:** Bir ya da daha fazla indeksi yeniden oluşturmak için kullanılır.
+- **multicolumn indexes:** Birden fazla alanı indekslemek için kullanılır.
+- **index on expression:** Bir ifadeye göre indekslemek için kullanılır.
 
 PostgreSQL'de genel olarak 6 tür indeks bulunur:
-- Hash indexes: Eşitlik karşılaştırmasında kullanılır.
-- GIN indexes: Generalized Inverted Indexes (GIN) bir alan için range type, jsonb, array vb. çok fazla değeri olan alanlar için kullanılır.
-- GiST Index: Bu indeks tüm text üzerinde arama (full text search) ve geometrik veri türleri ile kullanılır.
-- SP-GiST indexes: Space Partitioned (SP) GiST indexes parçalı arama ağaçları kullanarak indeksleme yapar. Multimedya,GIS, IP Routing gibi durumlarda kullanılır.
-- B-tree Indexes: Aslında en önemli indekstir. B-Tree özel bir dengelenmiş ağaç (balanced tree) veri yapısıdır. Özellikle `<, <=, >, >=, =, between, in, is null, is not null` gibi operatörler için kullanılır.
-- BRIN indexes: Block Range Indexes, B-Tree'ye göre daha küçük ve daha az maliyeti olan bir indekstir. Çok büyük tablolarda kullanımı tercih edilebilir.
+- **B-tree Indexes:** Aslında en önemli indekstir. B-Tree özel bir dengelenmiş ağaç (balanced tree) veri yapısıdır. Özellikle `<, <=, >, >=, =, between, in, is null, is not null` gibi operatörler için kullanılır. Bun indeks aynı zamanda varsayılan indekstir.
+	```sql
+	create index idx_devices_host on devices(host);
+	```
 
+- **Hash indexes:** Eşitlik karşılaştırmasında kullanılır. Özellikle PostgreSQL 10'dan itibaren güvenli bir indekstir. Çok özel durumlar haricinde B-tree daha iyidir. 
+
+```sql
+create index idx_hash_devices_host on devices using hash(host);
+```
+
+- **GIN indexes:** Generalized Inverted Indexes (GIN) bir alan için range type, json, array vb. çok fazla değeri olan alanlar için kullanılır. Burada ilgili alanın belirtilen türlerden olmaması durumunda error oluşur.
+```sql
+create index idx_hash_sensors_ports on sensors using gin(ports);
+```
+- **GiST Index:** Bu indeks tüm text üzerinde arama (full text search) ve geometrik veri türleri ile kullanılır.
+
+```sql
+create index idx_gist_locations_ports on locations using gin(geom);
+```
+- **SP-GiST indexes:** Space Partitioned (SP) GiST indexes parçalı arama ağaçları kullanarak indeksleme yapar. Multimedya,GIS, IP Routing gibi durumlarda kullanılır.
+
+- **BRIN indexes:** Block Range Indexes, B-Tree'ye göre daha küçük ve daha az maliyeti olan bir indekstir. Çok büyük tablolarda kullanımı tercih edilebilir.
+```sql
+create index idx_hash_sensors_ports on sensors using brin(ports);
+```
 
 
 
