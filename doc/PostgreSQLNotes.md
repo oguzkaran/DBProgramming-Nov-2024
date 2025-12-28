@@ -4574,6 +4574,227 @@ create index idx_hash_sensors_ports on sensors using brin(ports);
 
 
 
+##### XML İşlemleri
+
+PostgreSQL'de bir `data exchange format` olan XML ile işlem yapılabilmektedir. XML PostgreSQL'de bir veri türü (data type) olarak da desteklenmektedir.
+
+`xmlcomment` fonksiyonu ile xml yorum satırı oluşturulabilir
+
+```sql
+do $$
+    declare
+        data xml;
+    begin
+        data = xmlcomment('This is comment');
+
+        raise notice '%', data;
+    end
+$$
+```
+
+
+`xmlconcat` fonksiyonu ile birden xml birleştirilebilir. Aşağıdaki demo örneği inceleyiniz
+
+```sql
+create table books (
+    book_id serial primary key,
+	name varchar(512) not null,
+	ISBN varchar(30),
+	chapter_summary xml not null
+);
+
+create or replace function create_xml_with_comment(data xml, comment varchar(50))
+returns xml
+as $$
+    begin
+        return xmlconcat(xmlcomment(comment), data);
+    end;
+$$ language plpgsql;
+
+create or replace procedure sp_insert_book(varchar(512), varchar(30), xml)
+language plpgsql
+as $$ 
+	begin
+		insert into books (name, ISBN, chapter_summary) values ($1, $2, $3);
+	end
+$$;
+
+do $$
+    declare
+        data xml;
+    begin
+        data = create_xml_with_comment('
+        <book id="1" name="Cin Ali Lunaparkta">
+            <chapters>
+                <chapter id="1" name="Hazırlanma"/>
+                <chapter id="2" name="Evden çıkış"/>
+                <chapter id="3" name="Lunaparka varış"/>
+            </chapters>
+	    </book>', 'Cin Ali Kitapları Serisi');
+
+	   	call sp_insert_book('Cin Ali Lunaparkta', '1234567', data);
+
+        raise notice '%', data;
+    end
+$$
+```
+
+
+`xmlforest` fonksiyonu ile birden fazla xml elemanı oluşturulabilir
+
+```sql
+create table books (
+    book_id serial primary key,
+	name varchar(512) not null,
+	ISBN varchar(30),
+	chapter_summary xml not null
+);
+
+create or replace function get_book_as_xml(name varchar, isbn varchar)
+returns xml
+as $$
+    begin
+        return xmlelement(name book, xmlforest(name as name, isbn as isbn));
+    end
+$$ language plpgsql;
+
+
+select get_book_as_xml(name, isbn) from books;
+```
+
+`xmlelement` ve `xmlattribute` fonksiyonları
+
+```sql
+do $$
+    declare
+        data xml;
+    begin
+        data = xmlelement(name sensors, xmlattributes('1' as id, 'weather' as name));
+        raise notice '%', data;
+    end;
+$$;
+```
+
+**Anahtar Notlar:** PostgreSQL'de XML'e yönelik başka fonksiyonlar da bulunmaktadır. Bunlar dokümanlardan incelenebilir.
+##### JSON İşlemleri
+
+PostgreSQL'de bir `data exchange format` olan JSON ile işlem yapılabilmektedir. JSON PostgreSQL'de bir veri türü (data type) olarak da desteklenmektedir.
+
+PostgreSQL'de json bir bilgi tabloda tutulabilir
+
+Aşağıdaki SP'yi inceleyiniz
+
+Tutulan JSON formatı:
+```json
+  	{
+		"book": {
+		    "id": "1",
+		    "name": "Cin Ali Lunaparkta",
+		    "chapters": [
+		        {"id": 1, "name": "Hazırlanma"},
+		        {"id": 2, "name": "Evden çıkış"},
+		        {"id": 3, "name": "Lunaparka varış"}
+		    ]
+	  	}
+	}
+```
+
+```sql
+create table books (
+    book_id serial primary key,
+	name varchar(512) not null,
+	ISBN varchar(30),
+	chapter_summary json not null
+);
+
+create or replace procedure sp_insert_book(varchar, varchar, json)
+language plpgsql
+as $$
+    begin
+      insert into books (name, ISBN, chapter_summary) values ($1, $2, $3);
+    end
+$$;
+
+call sp_insert_book('Cin Ali Lunaparkta', '12345', '{
+  "book": {
+    "id": "1",
+    "name": "Cin Ali Lunaparkta",
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Lunaparka varış"}
+    ]
+  }
+}');
+```
+
+
+json formatında field'lara erişebilmek için `->` ve `->>` operatörleri kullanılabilir. `->` operatörü ile veri json formatında elde edilir. `->>` operatörü ile veri text formatında elde edilir. JSON formatındaki türe göre programcı ilgili türe dönüşüm yapabilir. `json_array_element` fonksiyonu kullanılarak JSON bir dizi ve indeks numarası ile bir elemana erişim sağlanabilir. Erişilen eleman JSON formatında elde edilir. `json_array_element_text` fonksiyonu kullanılarak JSON bir dizi ve indeks numarası ile bir elemana erişim sağlanabilir. Erişilen eleman text formatında elde edilir. Her iki fonksiyon için de indeks numarası `sıfır` değerinden başlar.
+
+```sql
+create table books (
+    book_id serial primary key,
+	name varchar(512) not null,
+	ISBN varchar(30),
+	chapter_summary json not null
+);
+
+create or replace procedure sp_insert_book(varchar, varchar, json)
+language plpgsql
+as $$
+    begin
+      insert into books (name, ISBN, chapter_summary) values ($1, $2, $3);
+    end
+$$;
+
+call sp_insert_book('Cin Ali Lunaparkta', '12345', '{
+  "book": {
+    "id": 1,
+    "name": "Cin Ali Lunaparkta",
+    "totalPage": 100,
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Lunaparka varış"}
+    ]
+  }
+}');
+
+call sp_insert_book('Cin Ali Maçta', '123457', '{
+  "book": {
+    "id": 1,
+    "name": "Cin Ali Maçta",
+    "totalPage": 130,
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Maça gidiş"}
+    ]
+  }
+}');
+
+select chapter_summary from books;
+
+select chapter_summary -> 'book' from books;
+select chapter_summary ->> 'book' from books;
+
+select chapter_summary -> 'book', chapter_summary ->> 'book' from books;
+select chapter_summary -> 'book' -> 'name' from books;
+select chapter_summary -> 'book' ->> 'name' from books;
+select cast(chapter_summary -> 'book' ->> 'id' as int) * 2 from books; -- for demo
+
+select sum(cast(chapter_summary ->'book' ->> 'totalPage' as int)) from books;
+select json_array_element(chapter_summary ->'book' -> 'chapters', 0) -> 'name' from books;
+select json_array_element_text(chapter_summary ->'book' -> 'chapters', 0) from books;
+```
+
+**Anahtar Notlar:** PostgreSQL'de JSON'a yönelik başka fonksiyonlar da bulunmaktadır. Bunlar dokümanlardan incelenebilir.
+
+
+**Anahtar Notlar:** PostgreSQL'de ayrıca JSON veriyi binary olarak tutabilen jsonb türü de vardır.
+
+##### Job İşlemleri
+
 
 
 
