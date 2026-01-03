@@ -3313,3 +3313,866 @@ sqlcmd -S . -i "staff.sql" -o "result.txt"
 
 - q seçeneği ile bir SP ismi verildiğinde exec işlemi yapılır
 
+
+##### XML İşlemleri
+
+SqlServer'da bir `data exchange format` olan XML ile işlem yapılabilmektedir. XML SqlServer'da bir veri türü (data type) olarak da desteklenmektedir.
+
+SqlServer xml türü ile XML formatındaki bir bilgiyi tutabilmektedir	
+
+```xml
+<book id="1" name="Cin Ali Lunaparkta">
+	<chapters>
+		<chapter id="1" name="Hazırlanma"/>
+		<chapter id="2" name="Evden çıkış"/>
+		<chapter id="3" name="Lunaparka varış"/>
+	</chapters>
+</book>
+```
+
+```sql
+create database librarydb
+
+go
+
+use librarydb
+
+go
+
+create table books (
+	book_id int primary key identity(1, 1),
+	name	nvarchar(250) not null,
+	ISBN nvarchar(30),
+	chapter_summary xml not null
+)
+
+go
+
+
+create procedure sp_insert_book(@name nvarchar(250), @ISBN nvarchar(30), @chapter_summary xml)
+as
+begin
+	insert into books (name, ISBN, chapter_summary) values (@name, @ISBN, @chapter_summary)	
+end
+
+go
+
+declare @chapter_summary xml
+
+
+set @chapter_summary = '<book id="1" name="Cin Ali Lunaparkta">
+	<chapters> 
+		<chapter id="1" name="Hazırlanma"/>
+		<chapter id="2" name="Evden çıkış"/>
+		<chapter id="3" name="Lunaparka varış"/>
+	</chapters>
+</book>'
+
+exec sp_insert_book 'Cin Ali Lunaparkta', '1234', @chapter_summary
+```
+
+xml türünün **exist** fonksiyonu ile XML formatı içerisinde hiyararşik olarak bilgiler verildiğinde istenilen bilgi elde edilebilir. exist fonksiyonu koşul ifadesi içerisinde kullanılabilir
+
+```sql
+select name from books where chapter_summary.exist('/book/chapters/chapter[@id=1]') = 1 and book_id = 1
+select name from books where chapter_summary.exist('/book/chapters/chapter[@name="Hazırlanma"]') = 1
+```
+
+
+Aşağıdaki sorguları inceleyiniz
+
+```sql
+declare @chapter_summary xml  
+  
+select @chapter_summary = chapter_summary from books where book_id = 1  
+  
+-- Bu sorguda bir kitabın XML türünde tutulan chapter'larının id ve name bilgileri elde edilmektedir  
+select  
+    BookID.value('@id', 'integer') as id,  
+    BookID.value('@name', 'nvarchar(100)') as name  
+from @chapter_summary.nodes('/book/chapters/chapter') as BookTable(BookID)
+```
+
+Yukarıdaki örnek için aşağıdaki bir SP yazılmıştır
+
+```sql
+create procedure sp_get_chapter_summary_info_by_book_id(@book_id integer)
+as
+begin
+    declare @chapter_summary xml
+
+    select @chapter_summary=chapter_summary from books where book_id=@book_id
+
+    -- Bu sorguda bir kitabın özel XML dosyasında bulunan chapter'larının id ve name bilgileri elde edilmektedir
+    select
+    BookID.value('@id', 'integer'),
+    BookID.value('@name', 'nvarchar(100)')
+    from @chapter_summary.nodes('/book/chapters/chapter') as BookTable(BookID)
+end
+
+exec sp_get_chapter_summary_info_by_book_id 1  
+exec sp_get_chapter_summary_info_by_book_id 2
+```
+
+
+XML Formatı:
+
+```xml
+	<book id="1" name="Cin Ali Lunaparkta">
+		<chapters> 
+			<chapter id="1" name="Hazırlanma"/>
+			<chapter id="2" name="Evden çıkış"/>
+			<chapter id="3" name="Lunaparka varış"/>
+		</chapters>
+	</book>
+```
+
+
+Aşağıdaki fonksiyon parametresi ile aldığı book_id ve chapter_id'ye ilişkin chapter'ın bilgilerini elde etmektedir
+
+```sql
+create procedure sp_get_chapter_summary_by_book_id_and_chapter_id(@book_id integer, @chapter_id int)
+as
+begin
+    declare @chapter_summary xml
+
+	select @chapter_summary=chapter_summary from books where book_id = @book_id
+
+	select
+	BookID.value('@id', 'integer'),
+	BookID.value('@name', 'nvarchar(100)')
+	from @chapter_summary.nodes('/book/chapters/chapter') as BookTable(BookID)
+	where BookID.value('@id', 'integer') = @chapter_id
+end
+
+exec sp_get_chapter_summary_by_book_id_and_chapter_id 1, 2
+```
+
+XQuery'nin query fonksiyonu ile XML üzerinde istenilen bir node için sorgulama yapılabilir. Sorgulama sonucunda elde edilen bilgi XML formatındadır. query fonksiyonunun parametresine ilişkin node bilgisi string literal olmalıdır. Aşağıdaki SP'ler için node bilgileri parametrik yapılamaz
+
+```sql
+use librarydb
+
+go
+
+create procedure sp_get_chapters_as_xml_by_book_id(@book_id int)  
+as  
+begin  
+    --TODO: transaction safe hale getiriniz (explicit transaction)  
+    declare @chapter_summary xml  
+  
+    select @chapter_summary=chapter_summary from books where book_id=@book_id  
+    select @chapter_summary.query('/book/chapters/chapter') as chapter  
+end  
+  
+go  
+  
+create procedure sp_get_all_chapters_as_xml_by_book_id(@book_id int)  
+as  
+begin  
+    --TODO: transaction safe hale getiriniz (explicit transaction)  
+    declare @chapter_summary xml  
+  
+    select @chapter_summary=chapter_summary from books where book_id=@book_id  
+    select @chapter_summary.query('/book/chapters') as chapters  
+end  
+  
+go  
+  
+create procedure sp_get_book_as_xml_by_book_id(@book_id int)  
+as  
+begin  
+  
+    --TODO: transaction safe hale getiriniz (explicit transaction)  
+    declare @chapter_summary xml  
+  
+    select @chapter_summary=chapter_summary from books where book_id=@book_id  
+    select @chapter_summary.query('/book') as book  
+end  
+  
+  
+exec sp_get_chapters_as_xml_by_book_id 1  
+exec sp_get_all_chapters_as_xml_by_book_id 1  
+  
+exec sp_get_book_as_xml_by_book_id 1
+```
+
+XQuery modify fonksiyonu ile XML içerisinde değişiklik yapılabilir.
+
+```sql
+use librarydb
+
+go
+
+update books set chapter_summary.modify(N'insert <chapter id="4" name="Eve dönüş"/> into (/book/chapters)[1]') where book_id=1
+
+select chapter_summary from books where book_id=1
+
+```
+**Soru:**
+```xml
+    <word id="1" text="yüz">
+        <meanings>
+            <meaning id="1" description="99 dan sonra gelen sayı"/>
+            <meaning id="2" description="İnsanın baş bölgesindeki bir parça"/>
+        </meanings>
+    </word>
+```
+
+Bu XML formatında:
+1. Bu formatı tutan tabloyu yapınız. Tablonun alanları:
+        - word_id int
+        - word nvarchar(50) unique
+        - word_desc xml
+2. Bu tabloya insert işlemi yapan SP'yi yazınız.
+3. Belirli bir kelime için kelimenin tüm anlamlarını veren SP'yi yazınız
+4. Belirli bir word_id ve belirli bir meaning id için kelimenin anlamını veren SP'yi yazınız
+
+```sql
+create database dictionarydb
+
+go
+
+use dictionarydb
+
+go 
+
+create table words (
+	word_id int primary key identity(1, 1),
+	word nvarchar(50) unique not null,
+	word_desc xml not null
+)
+
+go
+
+create procedure sp_insert_word(@word nvarchar(50), @word_desc xml)
+as
+begin
+	insert into words (word, word_desc) values (@word, @word_desc)
+end
+
+go
+
+
+create procedure sp_get_meanings_by_word(@word nvarchar(50))
+as
+begin
+	--TODO: transaction safe hale getiriniz
+	declare @word_desc xml
+
+	select @word_desc=word_desc from words where word=@word
+	select @word_desc.query('/word/meanings/meaning')
+end
+
+
+go
+
+-- insert test
+declare @wd xml = '<word id="1" name="yüz">
+	<meanings>
+		<meaning id="1" description="99 dan sonra gelen sayı"/>
+		<meaning id="2" description="İnsanın baş bölgesindeki bir parça"/> 
+	</meanings>
+</word>'
+
+exec sp_insert_word @word='yüz', @word_desc = @wd
+
+
+select word_desc  from words where word = 'yüz'
+
+
+--sp_get_meanings_by_word test
+
+exec sp_get_meanings_by_word @word='yüz'
+
+```
+
+XQuery modify fonksiyonu ile XML içerisinde değişiklik yapılabilir. Aşağıdaki örnekte eklenen node "as first" ile en başa çekilmiştir
+
+```sql
+use librarydb
+
+go
+
+update books set chapter_summary.modify(N'insert <chapter id="0" name="Giriş"/> as first into (/book/chapters)[1]') where book_id=1
+
+select chapter_summary from books where book_id=1
+
+```
+
+
+XQuery modify fonksiyonu ile XML içerisinde değişiklik yapılabilir. Aşağıdaki örnekte id si 0(sıfır) olan chapter node'u altına section isimli bir node eklenmiştir
+
+```sql
+use librarydb
+
+go
+
+update books set chapter_summary.modify(N'insert <section id="1" name="Cin Ali Hakkında"/> into (/book/chapters/chapter[@id=("0")])[1]') where book_id=1
+
+select chapter_summary from books where book_id=1
+
+```
+
+
+**Sınıf Çalışması:** Firmalara ilişkin bilgilerin tutulduğu aşağıdaki tabloyu yapınız:
+
+- companies
+- company_id int
+- title nvarchar(50)
+- address nvarchar(max)
+- departments xml
+
+
+1. Tabloya insert yapan SP'yi yazınız
+2. Verilen bir citizen_id ve company_id için çalışanın bilgilerini veren sp yi yazınız
+3. Bir company için accounting bölümüne yeni bir çalışan ekleyen SP yi yazınız
+
+XML formatı:
+
+```xml
+<departments>	
+	<department id="1" name="accounting">
+		<employee citizen_id="1234556" name="Ali" title="Muhasebe müdürü" salary="5000"/>
+		<employee citizen_id="12345" name="Zeynep" title="Sekreter" salary="2000"/>		
+	</department>	
+	<department id="2" name="software">
+		<employee citizen_id="12345567" name="Fulya" title="Proje yöneticisi" salary="20000"/>
+		<employee citizen_id="123457788" name="Veli" title="Yazılım Geliştirici" salary="7000"/>		
+	</department>
+</departments>	
+```
+
+```sql
+create database companydb
+
+go
+
+use companydb
+
+go 
+
+create table companies (
+	company_id int primary key identity(1, 1),
+	title nvarchar(50) not null,
+	address nvarchar(max) not null,
+	departments xml not null
+)
+
+
+go 
+
+create procedure sp_insert_company
+@title nvarchar(50), @address nvarchar(max), @departments xml
+as
+begin
+	insert into companies (title, address, departments) values (@title, @address, @departments)
+end
+
+
+go
+
+create procedure sp_get_employee_by_citizen_id
+@company_id int, @citizen_id nvarchar(11)
+as
+begin
+	declare @error_code int
+	declare @departments xml
+
+	begin transaction	
+
+	select @departments = departments from companies where company_id = @company_id
+
+	set @error_code = @@ERROR
+
+	if @error_code <> 0
+		goto ERROR
+
+	select
+	Employee.value('@name', 'nvarchar(100)'),
+	Employee.value('@title', 'nvarchar(100)'),
+	employee.value('@salary', 'money')
+	from @departments.nodes('/departments/department/employee') as CompanyTable(Employee)	
+	where Employee.value('@citizen_id', 'nvarchar(11)') = @citizen_id
+
+	set @error_code = @@ERROR
+
+	if @error_code <> 0
+		goto ERROR
+
+	commit transaction
+ERROR:
+	if @error_code <> 0
+		rollback transaction
+end
+
+go
+
+create procedure sp_insert_employee
+@company_id int, @department nvarchar(30), @citizen_id nvarchar(11), @name nvarchar(100), @title nvarchar(100), @salary money
+as
+begin
+	declare @salary_str nvarchar(100) = CAST(@salary as nvarchar(100))	
+	 
+	update companies set
+	departments.modify(N'insert <employee citizen_id="{sql:variable("@citizen_id")}" name="{sql:variable("@name")}" title="{sql:variable("@title")}" salary="{sql:variable("@salary")}" /> into (/departments/department[@name=("software")])[1]')
+	where company_id=@company_id
+end
+
+go
+
+
+exec sp_insert_company 
+@title='X Yazılım A.Ş.', @address = 'Mecidiyeköy',
+@departments = '<departments>	
+		<department id="1" name="accounting">
+			<employee citizen_id="1234556" name="Ali" title="Muhasebe müdürü" salary="5000"/>
+			<employee citizen_id="12345" name="Zeynep" title="Sekreter" salary="2000"/>		
+		</department>	
+		<department id="1" name="software">
+			<employee citizen_id="12345567" name="Fulya" title="Proje yöneticisi" salary="20000"/>
+			<employee citizen_id="123457788" name="Veli" title="Yazılım Geliştirici" salary="7000"/>		
+		</department>
+	</departments>'
+
+select * from companies
+
+exec sp_get_employee_by_citizen_id @company_id=1, @citizen_id='1234556'
+
+exec sp_insert_employee @company_id = 1, @department='software', @citizen_id='9876', @name='süleyman', @title='Ofis boy', @salary=3456
+
+select  * from companies
+```
+
+students tablosundaki verileri root node "students" ve her bir verinin node'u da "student" olacak şekilde xml formatında veri elde edilmesi
+	students tablosu:
+	- student_id
+	- name
+	- address
+biçimindedir.
+	Örnek Çıktı:
+	
+```xml
+	<students>
+		<student student_id="1" name="Oguz" address="Göktürk" />
+		<student student_id="2" name="Kaan" address="Atasehir" />
+		<student student_id="3" name="Ali" address="Basaksehir" />
+	</students>
+```
+
+```sql
+create database testschooldb
+
+go
+
+use testschooldb
+
+go
+
+
+create table students (
+	student_id int primary key identity(1, 1),
+	name nvarchar(100) not null,
+	address nvarchar(max) not null
+)
+
+go
+
+
+insert into students (name, address) values 
+('Oğuz', 'Göktürk'),
+('Kaan', 'Ataşehir'),
+('Ali', 'Başakşehir')
+
+select * from students for xml RAW('student'), ROOT('students'), type
+```
+
+
+Bir sorgu ile bir tablodan xml formatında bilgi elde edilebilir
+
+```sql
+declare @students xml
+
+set @students = (select * from students for xml auto)
+
+select  @students
+
+```
+
+
+Bir xml içerisinden bilgiler ayrıştırılabilir. Aşağıdaki örnekte
+```xml
+<book id="1" name="Cin Ali Lunaparkta">
+	<chapters> 
+		<chapter id="1" name="Hazırlanma"/>
+		<chapter id="2" name="Evden çıkış"/>
+		<chapter id="3" name="Lunaparka varış"/>
+	</chapters>
+</book>
+```
+
+Aşağıdaki örnekte XML verisinde id ve name attribute'larına ilişkin değerler chapter_id ve chapter_name olarak	ayrıştırılmış ve adeta tablo biçimine getirilmiştir
+
+```sql
+
+create procedure sp_get_details_from_chapters(@book_id int)
+as 
+begin
+	-- TODO: transaction ekleyiniz
+	declare @xml_doc xml
+	declare @h_doc int
+
+	select @xml_doc= (select chapter_summary from books where book_id=@book_id)
+	exec sp_xml_preparedocument @h_doc output, @xml_doc
+
+	select chapter_id as 'ID', chapter_name as 'NAME' from openxml(@h_doc, '/book/chapters/chapter') 
+	with (chapter_id int '@id', chapter_name nvarchar(100) '@name')
+
+	exec sp_xml_removedocument @h_doc
+end
+
+go 
+
+select * from books
+
+exec sp_get_details_from_chapters @book_id=1
+
+```
+
+##### JSON İşlemleri
+
+SqlServer 2016 ile birlikte json formatı kullanımı daha yetenekli hale gelmiştir. Bu anlamda json bir veri türü	olarak da bulunmaktadır.
+
+**isjson** fonksiyonu ile bir yazının json formatında olup olmadığı test edilebilir. Fonksiyon bit türüne geri döner. Örnekte yazı `{` ile başlamadığından dolayı geçersiz bir json formatıdır.
+
+```sql
+declare @data nvarchar(max)
+
+set @data = '
+  "book": {
+    "id": 1,
+    "name": "Cin Ali Lunaparkta",
+    "totalPage": 100,
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Lunaparka varış"}
+    ]
+  }
+}'
+
+select isjson(@data)
+```
+
+**json_value** fonksiyonu ile json içerisindeki bilgiler elde edilebilir. Aşağıdaki SP'de ekleme yapılmadan önce json  kontrolü yapıldığına dikkat ediniz
+
+```sql
+create table books (
+    book_id int primary key identity(1, 1),
+	name nvarchar(250) not null,
+	ISBN nvarchar(30),
+	chapter_summary nvarchar(max) not null
+);
+
+go
+
+create procedure sp_insert_book(@name nvarchar(250), @isbn nvarchar(30), @chapter_summary nvarchar(max))
+as
+begin
+    if isjson(@chapter_summary) = 0
+        throw 60000, 'Not a json format', 1
+
+    insert into books (name, ISBN, chapter_summary) values (@name, @isbn, @chapter_summary)
+end
+
+exec sp_insert_book 'Cin ali Lunaparkta', '12345', '{
+  "book": {
+    "id": 1,
+    "name": "Cin Ali Lunaparkta",
+    "totalPage": 100,
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Lunaparka varış"}
+    ]
+  }
+}'
+
+go
+
+select json_value(chapter_summary, '$.book.totalPage') from books
+
+select json_value(chapter_summary, '$.book.chapters[0].name') from books
+
+select json_value(chapter_summary, '$.book.chapters[1].name') from books
+```
+
+
+ json_modify fonksiyonu ile json veri üzerinde insert, delete ve update işlemleri yapılabilir. Bu fonksiyon update edilmiş json formatında nvarchar türden bilgiye geri döner.
+```sql
+create table books (
+    book_id int primary key identity(1, 1),
+	name nvarchar(250) not null,
+	ISBN nvarchar(30),
+	chapter_summary nvarchar(max) not null
+);
+
+go
+
+create procedure sp_insert_book(@name nvarchar(250), @isbn nvarchar(30), @chapter_summary nvarchar(max))
+as
+begin
+    if isjson(@chapter_summary) = 0
+        throw 60000, 'Not a json format', 1
+
+    insert into books (name, ISBN, chapter_summary) values (@name, @isbn, @chapter_summary)
+end
+
+exec sp_insert_book 'Cin ali Lunaparkta', '12345', '{
+  "book": {
+    "id": 1,
+    "name": "Cin Ali Lunaparkta",
+    "totalPage": 100,
+    "chapters": [
+        {"id": 1, "name": "Hazırlanma"},
+        {"id": 2, "name": "Evden çıkış"},
+        {"id": 3, "name": "Lunaparka varış"}
+    ]
+  }
+}'
+
+go
+
+select chapter_summary from books
+
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[2].name', 'Varış') where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[0].sectionCount', 2) where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, 'append $.book.chapters', json_query('{"id": 3, "name": "Eve dönüş"}', '$')) where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[3].id', 4) where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[3]', null) where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[3]', json_query('{"id": 4, "name": "Eve dönüş"}', '$')) where book_id = 1
+update books set chapter_summary = json_modify(chapter_summary, '$.book.chapters[0].sectionCount', null) where book_id = 1
+update books set chapter_summary = json_modify(json_modify(chapter_summary, '$.book.chapters[3].title_name', json_value(chapter_summary, '$.book.chapters[3].name')), '$.book.chapters[3].name', null)
+
+```
+
+ Bir sorgunun sonucunda json formatı elde etmek için "for json auto" cümlesi kullanılabilir. Aşağıdaki sorguda elde edilen json formatı şu şekildedir:
+```json
+    [
+    {
+        "id": 236,
+        "name": "Ramphastos tucanus",
+        "host": "209.254.156.157",
+        "port": 47243,
+        "register_datetime": "2023-05-07T23:04:57.203",
+        "sensor_data": [
+            {
+                "port_id": 1,
+                "sensor_id": 236,
+                "value": -8.8639999e+001,
+                "measure_datetime": "2022-09-01T00:00:00"
+            },
+            {
+                "port_id": 259,
+                "sensor_id": 236,
+                "value": 7.4899998e+000,
+                "measure_datetime": "2023-02-18T00:00:00"
+            }
+        ]
+    }
+]
+```
+
+```sql
+create table sensors (
+    id int primary key identity(1, 1),
+    name nvarchar(100) unique not null,
+    host nvarchar(100) not null,
+    port int check(port > 1023) not null,
+    register_datetime datetime default(sysdatetime()) not null
+);
+
+go
+
+
+create table sensor_data (
+    port_id bigint primary key identity(1, 1),
+    sensor_id int references sensors(id) not null,
+    value real,
+    measure_datetime datetime
+);
+
+
+select * from sensors s inner join sensor_data  on s.id = sensor_data.sensor_id
+where id = 236 for json auto
+
+```
+
+Bir sorgunun sonucunda json formatı elde etmek için `for json path, root (<root name>)`" cümlesi kullanılabilir. Aşağıdaki sorguda elde edilen json formatı şu şekildedir:
+
+```json
+
+    {
+    "sensor_info": [
+        {
+            "id": 236,
+            "name": "Ramphastos tucanus",
+            "host": "209.254.156.157",
+            "port": 47243,
+            "register_datetime": "2023-05-07T23:04:57.203",
+            "port_id": 1,
+            "sensor_id": 236,
+            "value": -8.8639999e+001,
+            "measure_datetime": "2022-09-01T00:00:00"
+        },
+        {
+            "id": 236,
+            "name": "Ramphastos tucanus",
+            "host": "209.254.156.157",
+            "port": 47243,
+            "register_datetime": "2023-05-07T23:04:57.203",
+            "port_id": 259,
+            "sensor_id": 236,
+            "value": 7.4899998e+000,
+            "measure_datetime": "2023-02-18T00:00:00"
+        }
+    ]
+}
+
+```
+
+
+```sql
+create table sensors (
+    id int primary key identity(1, 1),
+    name nvarchar(100) unique not null,
+    host nvarchar(100) not null,
+    port int check(port > 1023) not null,
+    register_datetime datetime default(sysdatetime()) not null
+);
+
+go
+
+
+create table sensor_data (
+    port_id bigint primary key identity(1, 1),
+    sensor_id int references sensors(id) not null,
+    value real,
+    measure_datetime datetime
+);
+
+
+go
+select * from sensors s inner join sensor_data  on s.id = sensor_data.sensor_id
+where id = 236 for json path, root ('sensor_info')
+
+```
+
+ **openjson** fonksiyonu ile bir json formatından tablo elde edilebilir
+
+```sql
+select * from openjson(' [
+    {
+        "id": 236,
+        "name": "Ramphastos tucanus",
+        "host": "209.254.156.157",
+        "port": 47243,
+        "register_datetime": "2023-05-07T23:04:57.203",
+        "port_id": 1,
+        "sensor_id": 236,
+        "value": -8.8639999e+001,
+        "measure_datetime": "2022-09-01T00:00:00"
+    },
+    {
+        "id": 236,
+        "name": "Ramphastos tucanus",
+        "host": "209.254.156.157",
+        "port": 47243,
+        "register_datetime": "2023-05-07T23:04:57.203",
+        "port_id": 259,
+        "sensor_id": 236,
+        "value": 7.4899998e+000,
+        "measure_datetime": "2023-02-18T00:00:00"
+    }
+]')
+
+```
+
+ **Sınıf Çalışması:** Veteriner Hastanesi veritabanı içerisindeki tüm sorguları json formatında döndüren fonksiyonları yazınız. Fonksiyonlar parametre değişkenleri olarak koşullar içerisinde kullanılan değerleri alacaklardır. Json formatlarının hepsi bir object olarak ele alınacaktır. Json diziler object'in elemanları olarak bulundurulacaktır.
+
+**Sınıf Çalışması:** api.randomuser.me servisinden elde edilen JSON formatına ilişkin ilişkisel tabloları oluşturunuz.
+    Bu tabloları JSON veriden elde ediniz.
+    Örnek bir Json formatı:
+```json
+    {
+    "results": [
+        {
+            "gender": "female",
+            "name": {
+                "title": "Ms",
+                "first": "Radomira",
+                "last": "Ieremenko"
+            },
+            "location": {
+                "street": {
+                    "number": 3938,
+                    "name": "Ayvazovskogo"
+                },
+                "city": "Zvenigorodka",
+                "state": "Poltavska",
+                "country": "Ukraine",
+                "postcode": 74627,
+                "coordinates": {
+                    "latitude": "73.2138",
+                    "longitude": "121.1548"
+                },
+                "timezone": {
+                    "offset": "-11:00",
+                    "description": "Midway Island, Samoa"
+                }
+            },
+            "email": "radomira.ieremenko@example.com",
+            "login": {
+                "uuid": "b4c0605a-bc29-4a74-b951-1a5174e24dc1",
+                "username": "beautifulcat718",
+                "password": "froggy",
+                "salt": "WkLQDqQL",
+                "md5": "acd92f6accf888d8663fe5b7ba39c261",
+                "sha1": "4c0895f1a44838e20298eae4da135e27ca618e85",
+                "sha256": "07979c97fe3f99d7122a39417deccc7b44fd7ec3eb34943370c5cd10b30ad743"
+            },
+            "dob": {
+                "date": "1964-09-10T20:59:33.771Z",
+                "age": 58
+            },
+            "registered": {
+                "date": "2003-08-29T16:05:40.590Z",
+                "age": 19
+            },
+            "phone": "(067) W12-8707",
+            "cell": "(097) D03-7324",
+            "id": {
+                "name": "",
+                "value": null
+            },
+            "picture": {
+                "large": "https://randomuser.me/api/portraits/women/43.jpg",
+                "medium": "https://randomuser.me/api/portraits/med/women/43.jpg",
+                "thumbnail": "https://randomuser.me/api/portraits/thumb/women/43.jpg"
+            },
+            "nat": "UA"
+        }
+    ],
+    "info": {
+        "seed": "5aa2f7d736eab78a",
+        "results": 1,
+        "page": 1,
+        "version": "1.4"
+    }
+}
+```
+
+
+
+
+

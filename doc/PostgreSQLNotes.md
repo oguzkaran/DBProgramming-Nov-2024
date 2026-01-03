@@ -4572,8 +4572,6 @@ create index idx_gist_locations_ports on locations using gin(geom);
 create index idx_hash_sensors_ports on sensors using brin(ports);
 ```
 
-
-
 ##### XML İşlemleri
 
 PostgreSQL'de bir `data exchange format` olan XML ile işlem yapılabilmektedir. XML PostgreSQL'de bir veri türü (data type) olarak da desteklenmektedir.
