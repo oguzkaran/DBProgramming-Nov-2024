@@ -4789,13 +4789,142 @@ select json_array_element_text(chapter_summary ->'book' -> 'chapters', 0) from b
 **Anahtar Notlar:** PostgreSQL'de JSON'a yönelik başka fonksiyonlar da bulunmaktadır. Bunlar dokümanlardan incelenebilir.
 
 
-**Anahtar Notlar:** PostgreSQL'de ayrıca JSON veriyi binary olarak tutabilen jsonb türü de vardır.
+**Anahtar Notlar:** PostgreSQL'de ayrıca JSON verinin binary olarak tutulabildiği `jsonb` türü de vardır.
 
 ##### Job İşlemleri
 
+###### Job Kavramı
 
+Job, belirli SQL veya bir takım işlemlerin otomatik ve zamanlanmış olarak çalıştırılmasıdır. PostgreSQL'de doğrudan bir **job scheduler** yoktur. Bu nedenle job işlemleri harici araçlar veya bir takım eklentiler (extensions) kullanılarak yapılır. Job ile veritabanı düzeyinde yapılan tipik bazı işlemler şunlardır:
+- Backup.
+- Eski verilerin temizlenmesi.
+- Log temizliği.
+- Veritabanının `shrink` edilmesi.
+- Rapor üretimi
 
+PostgresSQL'de en çok kullanılan scheduler **pg_cron** eklentisidir. 
 
+**Anahtar Notlar:** Cron Unix/Linux dünyasında scheduler oluşturmak için kullanılan önemli araçlardan biridir. Cron ya da cron job tipik olarak `cron expression` ile çalışır. Cron expression standardı tipik olarak 5 tane bileşenden oluşur:
+```
+* * * * *
+│ │ │ │ │
+│ │ │ │ └── Haftanın günü (0-7)  (0 ve 7 = Pazar)
+│ │ │ └──── Ay (1-12)
+│ │ └────── Ayın günü (1-31)
+│ └──────── Saat (0-23)
+└────────── Dakika (0-59)
+```
+
+Burada `*` karakteri her biri için `hepsi` anlamındadır. `*` yerine verilecek değerlere göre expression (yani aslında periyot) belirlenir. Her ne kadar standart olmasa da neredeyse tüm cron job'lar saniye bilgisini de destekler. Saniye bilgisi yukarıdaki expression'da en soldaki bilgi olarak verilebilir. Cron job genel bir kavramdır. Detayları çeşitli dokümanlardan öğrenilebilir. Ayrıca Cron job'a ilişkin [Wikipedia](https://en.wikipedia.org/wiki/Cron) sayfası da özet anlamında incelenebilir.
+
+Dockerize edilmiş bir PostgreSQL container'ında pg_cron kurulumu ve kullanımı için tipik adımlar şunlardır:
+1. Docker container'a root olarak girilir:
+```
+docker exec -ti --user root <container ismi ya da container id'sinin en az ilk üç karakteri> /bin/bash
+```
+
+Örneğin:
+
+```
+docker exec -ti --user root a3b bash
+```
+
+pg_cron kullanılabilmesi için PostgreSQL'in en az 17 sürümünde çalışılması gerekir. Eski sürümlerin hepsi desteklemeyebilir. 
+2. Paket listesi güncellenmesi tavsiye edilir:
+```
+apt update
+```
+
+ya da 
+
+```
+apt-get update
+```
+
+3. `postgresql-17-cron` paketi install edilir:
+
+```
+apt install -y postgresql-17-cron
+```
+4. `postgesql.conf` dosyasında `pg_cron` paylaşılan kütüphanelerinin kullanılabilmesi için dosyanın sonuna `shared_preload_libraries='pg_cron'` satırının eklenmesi gerekir. Bu işlem aşağıdaki gibi (ya da başka şekilde) yapılabilir:
+
+```
+echo shared_preload_libraries='pg_cron' >> /var/lib/postgresql/data/postgresql.conf
+```
+
+5. Container restart edilir:
+```
+docker restart <container bilgisi>
+```
+
+6. `cron.database_name` cron job kullanılacak database olarak belirlenir:
+```
+alter system set cron.database_name='<database name>';
+```
+
+7. Container restart edilir:
+```
+docker restart <container bilgisi>
+```
+8. pg_cron extension'ı enablen edilir:
+
+```
+ create extension if not exists pg_cron;
+```
+
+9. cron.schedule fonksiyonu ile cron job cron expression ile oluşturulur:
+```
+select cron.schedule('my_job', '*/1 * * * *', 'select now()');
+```
+Burada `my_job` isimli job, dakikada bir çalıştırılmaktadır. Bir job'a ilişkin bilgiler aşağıdaki sorgu ile elde edilebilir:
+
+```
+select * from cron.job_run_details;
+```
+
+Bir pg_cron job aşağıdaki gibi `unschedule` edilebilir:
+
+```
+select cron.unschedule('<job name>')
+```
+
+pg_cron'a ilişkin detaylar dökumanlardan öğrenilebilir. 
+
+##### Şifreli Veri Tutma
+
+PostgreSQL'de veriler güvenli (secure)  bir biçimde tutulabilmektedir. Pek çok yöntem söz konusu olsa da tipik olarak iki yöntem kullanılır: **hashing, encryption**. Hashing, tek yönlü, geri döndürülemez (çözülemez) ve genel olarak parolalar (password) için kullanılır. Encryption, iki yönlü (encrypt/decrypt), gizli ancak okunması (çözülmesi) gereken veriler için kullanılır.
+
+PostgreSQL'de hashing bir extension olarak kullanılır:**pgcrypto.** Bu extension aşağıdaki biçiminde yaratılabilir:
+
+```
+create extension if not exists pgcrypto;
+```
+
+Buna göre `bcrypt` kullanılarak hashing ve simetrik şifreleme (AES) kullanılarak örnek users tablosu için şu şekilde yapılabilir:
+
+```sql
+create table users (
+	user_id serial primary key,
+	name varchar(250) not null,
+	citizen_id char(11) unique not null,
+	email varchar(100) not null unique,
+	password varchar(250) not null
+);
+
+insert into users (name, citizen_id, email, password) values ('Oğuz', pgp_sym_encrypt('12345678912', 'csystem1993'), 'oguzkaran@csystem.org', crypt('csd1993', gen_salt('bf')));
+insert into users (name, citizen_id, email, password) values ('Deniz', pgp_sym_encrypt('123456789156', 'csystem1993'), 'denizkaran@csystem.org', crypt('csd1993', gen_salt('bf')));
+pgp_sym_encrypt('12345678912', 'csystem1993')
+
+select pgp_sym_decrypt(citizen_id::bytea, 'csystem1993') from users; where email = 'oguzkaran@csystem.org';
+```
+
+Doğrulama işlemi aşağıdaki biçimde yapılabilir:
+
+```sql
+SELECT (password = crypt('csd1933', password)) AS is_valid FROM users WHERE email = 'denizkaran@csystem.org';
+```
+
+Buradaki bazı detaylar hashing ve encryption ile ilgildir. Burada ele alınmayacaktır. 
 
 
 
