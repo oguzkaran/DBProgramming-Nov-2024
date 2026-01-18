@@ -5,7 +5,15 @@
 >PostgreSQL free olarak kullanılabilen güçlü bir veritabanı yönetim sistemidir. PostgreSQL 
 >**[https://www.enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.postgresql.org/download/)**  bağlantısından ilgili işletim sistemine göre indirilip yüklenebilmektedir.  Ayrıca PostgreSQL `docker` platformu ile kullanılabilmektedir. Docker image'ı olarak PostgreSQL'in çekilebilmesi (pull) her host sistemde aşağıdaki gibi yapılabilir:
 
-	`docker pull postgres:latest`
+```bash
+docker pull postgres:latest
+```
+
+>postgres imajında bir container oluşturmak için aşağıdaki örnek komut kullanılabilir:
+
+```bash
+docker run --name postgresql -e POSTGRES_PASSWORD=csystem-1993 -p 5432:5432 -d postgres
+```
 
 >PostgreSQL'in dili default olarak **plpgsql** olarak adlandırılır. Ancak PostgreSQL içerisinde belirli koşullar altında `Python, Perl, Ruby vb` diller de kullanılabilmektedir. Ayrıca C ve C++yazılmış kütüphanelere de erişim mümkündür.
 
